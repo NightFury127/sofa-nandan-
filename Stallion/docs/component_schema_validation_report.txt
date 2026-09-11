@@ -1,0 +1,376 @@
+================================================================================
+COMPONENT SCHEMA VALIDATION REPORT
+================================================================================
+
+COMPONENTS BY CATEGORY:
+
+  FOAM (3 components):
+    - arm_foam
+    - back_foam
+    - seat_foam
+
+  FRAME (12 components):
+    - arm_post_back
+    - arm_post_front
+    - arm_top_rail
+    - back_cross_member
+    - back_rail_bottom
+    - back_rail_top
+    - seat_cross_member
+    - seat_deck_board
+    - seat_rail_back
+    - seat_rail_front
+    - seat_rail_left
+    - seat_rail_right
+
+  HARDWARE (3 components):
+    - corner_block
+    - hardware_fastener
+    - leg
+
+  MISC (2 components):
+    - adhesive
+    - thread
+
+  UPHOLSTERY (3 components):
+    - fabric_arm
+    - fabric_back
+    - fabric_seat
+
+  WEBBING_SPRING (3 components):
+    - spring_clip
+    - spring_unit
+    - webbing_strap
+
+================================================================================
+VALIDATION RESULTS:
+================================================================================
+
+✓ No structural errors found
+
+✓ No warnings
+
+================================================================================
+
+================================================================================
+BOM GENERATION RESULTS
+================================================================================
+
+
+1-SEATER:
+------------------------------------------------------------
+  Component count: 26
+  Grand total cost: INR 14,479.50
+
+  Costs by category:
+    foam: INR 1,490.00 (7.500 units)
+    frame: INR 10,058.50 (12.050 units)
+    hardware: INR 510.00 (28.000 units)
+    misc: INR 116.00 (1.400 units)
+    upholstery: INR 2,025.00 (4.500 units)
+    webbing_spring: INR 280.00 (28.000 units)
+
+
+2-SEATER:
+------------------------------------------------------------
+  Component count: 26
+  Grand total cost: INR 19,585.50
+
+  Costs by category:
+    foam: INR 2,880.00 (14.500 units)
+    frame: INR 12,516.50 (15.050 units)
+    hardware: INR 522.00 (36.000 units)
+    misc: INR 174.00 (2.100 units)
+    upholstery: INR 3,015.00 (6.700 units)
+    webbing_spring: INR 478.00 (48.000 units)
+
+
+3-SEATER:
+------------------------------------------------------------
+  Component count: 26
+  Grand total cost: INR 25,007.50
+
+  Costs by category:
+    foam: INR 4,270.00 (21.500 units)
+    frame: INR 15,314.50 (18.450 units)
+    hardware: INR 534.00 (44.000 units)
+    misc: INR 232.00 (2.800 units)
+    upholstery: INR 4,005.00 (8.900 units)
+    webbing_spring: INR 652.00 (66.000 units)
+
+
+4-SEATER:
+------------------------------------------------------------
+  Component count: 26
+  Grand total cost: INR 30,499.50
+
+  Costs by category:
+    foam: INR 5,660.00 (28.500 units)
+    frame: INR 17,942.50 (21.650 units)
+    hardware: INR 786.00 (56.000 units)
+    misc: INR 290.00 (3.500 units)
+    upholstery: INR 4,995.00 (11.100 units)
+    webbing_spring: INR 826.00 (84.000 units)
+
+
+L-SHAPE:
+------------------------------------------------------------
+  Component count: 26
+  Grand total cost: INR 35,960.50
+
+  Costs by category:
+    foam: INR 6,360.00 (32.000 units)
+    frame: INR 21,652.50 (26.150 units)
+    hardware: INR 798.00 (64.000 units)
+    misc: INR 334.00 (4.100 units)
+    upholstery: INR 5,850.00 (13.000 units)
+    webbing_spring: INR 966.00 (98.000 units)
+
+
+================================================================================
+COUNT-FORMULA VALIDATION
+================================================================================
+
+Webbing/Spring counts across all sizes:
+
+  webbing_strap:
+    1-seater: 4.0 pieces
+    2-seater: 6.0 pieces
+    3-seater: 6.0 pieces
+    4-seater: 6.0 pieces
+    l-shape: 8.0 pieces
+
+  spring_unit:
+    1-seater: 8.0 pieces
+    2-seater: 14.0 pieces
+    3-seater: 20.0 pieces
+    4-seater: 26.0 pieces
+    l-shape: 30.0 pieces
+
+  spring_clip:
+    1-seater: 16.0 pieces
+    2-seater: 28.0 pieces
+    3-seater: 40.0 pieces
+    4-seater: 52.0 pieces
+    l-shape: 60.0 pieces
+
+
+================================================================================
+FULL BOM JSON (3-SEATER - COMPLETE STRUCTURED DATA)
+================================================================================
+
+{
+  "sofa_type": "3-seater",
+  "components": {
+    "seat_rail_front": {
+      "category": "frame",
+      "qty": 2.1,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 1785.0
+    },
+    "seat_rail_back": {
+      "category": "frame",
+      "qty": 2.1,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 1785.0
+    },
+    "seat_rail_left": {
+      "category": "frame",
+      "qty": 0.6,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 510.0
+    },
+    "seat_rail_right": {
+      "category": "frame",
+      "qty": 0.6,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 510.0
+    },
+    "seat_cross_member": {
+      "category": "frame",
+      "qty": 3.0,
+      "unit": "pieces",
+      "unit_cost": 850.0,
+      "total_cost": 2550.0
+    },
+    "seat_deck_board": {
+      "category": "frame",
+      "qty": 1.6,
+      "unit": "square_meters",
+      "unit_cost": 620.0,
+      "total_cost": 992.0
+    },
+    "webbing_strap": {
+      "category": "webbing_spring",
+      "qty": 6.0,
+      "unit": "pieces",
+      "unit_cost": 12.0,
+      "total_cost": 72.0
+    },
+    "spring_unit": {
+      "category": "webbing_spring",
+      "qty": 20.0,
+      "unit": "pieces",
+      "unit_cost": 25.0,
+      "total_cost": 500.0
+    },
+    "spring_clip": {
+      "category": "webbing_spring",
+      "qty": 40.0,
+      "unit": "pieces",
+      "unit_cost": 2.0,
+      "total_cost": 80.0
+    },
+    "back_rail_top": {
+      "category": "frame",
+      "qty": 2.0,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 1700.0
+    },
+    "back_rail_bottom": {
+      "category": "frame",
+      "qty": 2.0,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 1700.0
+    },
+    "back_cross_member": {
+      "category": "frame",
+      "qty": 3.0,
+      "unit": "pieces",
+      "unit_cost": 850.0,
+      "total_cost": 2550.0
+    },
+    "seat_foam": {
+      "category": "foam",
+      "qty": 12.0,
+      "unit": "kg",
+      "unit_cost": 210.0,
+      "total_cost": 2520.0
+    },
+    "back_foam": {
+      "category": "foam",
+      "qty": 7.5,
+      "unit": "kg",
+      "unit_cost": 180.0,
+      "total_cost": 1350.0
+    },
+    "arm_foam": {
+      "category": "foam",
+      "qty": 2.0,
+      "unit": "kg",
+      "unit_cost": 200.0,
+      "total_cost": 400.0
+    },
+    "arm_post_front": {
+      "category": "frame",
+      "qty": 0.6,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 510.0
+    },
+    "arm_post_back": {
+      "category": "frame",
+      "qty": 0.6,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 510.0
+    },
+    "arm_top_rail": {
+      "category": "frame",
+      "qty": 0.25,
+      "unit": "meters",
+      "unit_cost": 850.0,
+      "total_cost": 212.5
+    },
+    "fabric_seat": {
+      "category": "upholstery",
+      "qty": 4.4,
+      "unit": "square_meters",
+      "unit_cost": 450.0,
+      "total_cost": 1980.0
+    },
+    "fabric_back": {
+      "category": "upholstery",
+      "qty": 2.9,
+      "unit": "square_meters",
+      "unit_cost": 450.0,
+      "total_cost": 1305.0
+    },
+    "fabric_arm": {
+      "category": "upholstery",
+      "qty": 1.6,
+      "unit": "square_meters",
+      "unit_cost": 450.0,
+      "total_cost": 720.0
+    },
+    "leg": {
+      "category": "hardware",
+      "qty": 4.0,
+      "unit": "pieces",
+      "unit_cost": 90.0,
+      "total_cost": 360.0
+    },
+    "corner_block": {
+      "category": "hardware",
+      "qty": 4.0,
+      "unit": "pieces",
+      "unit_cost": 30.0,
+      "total_cost": 120.0
+    },
+    "hardware_fastener": {
+      "category": "hardware",
+      "qty": 36.0,
+      "unit": "pieces",
+      "unit_cost": 1.5,
+      "total_cost": 54.0
+    },
+    "adhesive": {
+      "category": "misc",
+      "qty": 0.8,
+      "unit": "kg",
+      "unit_cost": 140.0,
+      "total_cost": 112.0
+    },
+    "thread": {
+      "category": "misc",
+      "qty": 2.0,
+      "unit": "cones",
+      "unit_cost": 60.0,
+      "total_cost": 120.0
+    }
+  },
+  "totals_by_category": {
+    "frame": {
+      "qty": 18.45,
+      "cost": 15314.5
+    },
+    "webbing_spring": {
+      "qty": 66.0,
+      "cost": 652.0
+    },
+    "foam": {
+      "qty": 21.5,
+      "cost": 4270.0
+    },
+    "upholstery": {
+      "qty": 8.9,
+      "cost": 4005.0
+    },
+    "hardware": {
+      "qty": 44.0,
+      "cost": 534.0
+    },
+    "misc": {
+      "qty": 2.8,
+      "cost": 232.0
+    }
+  },
+  "grand_total_cost": 25007.5,
+  "component_count": 26
+}

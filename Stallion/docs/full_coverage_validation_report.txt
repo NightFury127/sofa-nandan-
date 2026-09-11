@@ -1,0 +1,116 @@
+Total components: 28
+Total Fusion folders: 10
+
+Component Coverage:
+  ✓ seat_rail_front                -> Wood Frame
+  ✓ seat_rail_back                 -> Wood Frame
+  ✓ seat_rail_left                 -> Wood Frame
+  ✓ seat_rail_right                -> Wood Frame
+  ✓ seat_cross_member              -> Wood Frame
+  ✓ seat_deck_board                -> Plywood
+  ✓ webbing_strap                  -> Seat belts
+  ✓ spring_unit                    -> Springs
+  ✓ spring_clip                    -> Clips
+  ✓ back_rail_top                  -> Wood Frame
+  ✓ back_rail_bottom               -> Wood Frame
+  ✓ back_cross_member              -> Wood Frame
+  ✓ seat_foam                      -> Foam
+  ✓ back_foam                      -> Foam
+  ✓ arm_foam                       -> Foam
+  ✓ arm_post_front                 -> Wood Frame
+  ✓ arm_post_back                  -> Wood Frame
+  ✓ arm_top_rail                   -> Wood Frame
+  ✓ fabric_seat                    -> Fabric
+  ✓ fabric_back                    -> Fabric
+  ✓ fabric_arm                     -> Fabric
+  ✓ leg                            -> Wood Frame
+  ✓ corner_block                   -> Wood Frame
+  ✓ hardware_fastener              -> Clips
+  ✓ adhesive                       -> Wood Frame
+  ✓ thread                         -> Fabric
+  ✓ handle_foam                    -> Handle Foam
+  ✓ handle_frame                   -> Handle Frame
+
+Folder Coverage:
+  ✓ Back rest belts                (1 components)
+  ✓ Springs                        (1 components)
+  ✓ Clips                          (2 components)
+  ✓ Seat belts                     (1 components)
+  ✓ Foam                           (2 components)
+  ✓ Wood Frame                     (14 components)
+  ✓ Plywood                        (1 components)
+  ✓ Handle Foam                    (1 components)
+  ✓ Fabric                         (4 components)
+  ✓ Handle Frame                   (1 components)
+
+Result: PASS
+
+
+Sofa Type | Total Cost (INR) | Component Count | Frame Cost | Webbing/Spring | Foam | Upholstery | Hardware | Misc
+----------------------------------------------------------------------------------------------------------------------------------
+1-seater   |           14954 |              28 |      10058 |            280 | 1490 |       2025 |      510 |  116
+2-seater   |           20106 |              28 |      12516 |            478 | 2880 |       3015 |      522 |  174
+3-seater   |           25558 |              28 |      15314 |            652 | 4270 |       4005 |      534 |  232
+4-seater   |           31080 |              28 |      17942 |            826 | 5660 |       4995 |      786 |  290
+l-shape    |           36786 |              28 |      21652 |            966 | 6360 |       5850 |      798 |  334
+
+Production CAD Status:
+  + 1-seater             -> outputs\production_cad\1-seater.step
+  + 2-seater             -> outputs\production_cad\2-seater.step
+  + 3-seater             -> outputs\production_cad\3-seater.step
+  + 4-seater             -> outputs\production_cad\4-seater.step
+  + l-shape              -> outputs\production_cad\l-shape_modular.step
+
+Result: PASS
+
+
+3-seater cost:           INR 25,558
+Chaise module factor:    75.0%
+Expected L-shape cost:   INR 44,726
+Actual L-shape cost:     INR 36,786
+Delta:                   INR 7,940 (17.8%)
+
+Result: PASS
+
+
+Verifying clips are derived (not independent) at two sofa sizes:
+
+✓ 1-seater:
+    Spring count:    8.0
+    Webbing count:   4.0
+    Clip count:      16.0
+    Ratio (clips/springs+webbing): 1.33
+    Expected range:  (1.2, 3.0)
+    Status: ✓ PASS
+
+✓ 3-seater:
+    Spring count:    20.0
+    Webbing count:   6.0
+    Clip count:      40.0
+    Ratio (clips/springs+webbing): 1.54
+    Expected range:  (1.2, 3.0)
+    Status: ✓ PASS
+
+
+Overall Result: PASS
+
+
+✓ 1-seater        -> outputs\production_cad\1-seater.step               (162119 bytes)
+✓ 3-seater        -> outputs\production_cad\3-seater.step               (162669 bytes)
+✓ l-shape         -> outputs\production_cad\l-shape_modular.step        (325713 bytes)
+
+Result: PASS
+
+
+✓ BOM JSON exported: outputs\validation\full_sofa_matrix_bom.json (30867 bytes)
+✓ 3-seater detailed BOM: outputs\validation\3-seater_detailed_bom.json (5160 bytes)
+✓ STEP files generated: 7 files
+    - 1-seater.step (162119 bytes)
+    - 2-seater.step (161657 bytes)
+    - 3-seater.step (162669 bytes)
+    - 4-seater.step (191869 bytes)
+    - demo_3seater.step (36 bytes)
+    - demo_lshape.step (43 bytes)
+    - l-shape_modular.step (325713 bytes)
+
+Result: PASS

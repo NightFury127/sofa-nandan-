@@ -1,0 +1,15 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+opencv-python-headless==4.10.0.84
+matplotlib==3.9.2
+pandas==2.3.3
+ezdxf==1.4.1
+trimesh==4.5.0
+numpy-stl==3.2.0
+ultralytics==8.3.47
+pytest==8.3.3
+httpx==0.28.1
+build123d==0.11.1
+Pillow==12.3.0
+python-multipart==0.0.32
+numpy==2.5.1

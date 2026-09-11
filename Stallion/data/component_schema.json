@@ -1,0 +1,805 @@
+{
+  "schema_version": "2.0",
+  "components": {
+    "seat_rail_front": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Front horizontal rail of seat frame",
+      "unit_of_measurement": "meters",
+      "formula": "base_length * 1.0",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.2,
+        "2-seater": 1.6,
+        "3-seater": 2.1,
+        "4-seater": 2.6,
+        "l-shape": 3.1
+      },
+      "default_material": "hardwood (pine/birch)",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "linear_length",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "seat_rail_back": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Back horizontal rail of seat frame",
+      "unit_of_measurement": "meters",
+      "formula": "base_length * 1.0",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.2,
+        "2-seater": 1.6,
+        "3-seater": 2.1,
+        "4-seater": 2.6,
+        "l-shape": 3.1
+      },
+      "default_material": "hardwood (pine/birch)",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "linear_length",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "seat_rail_left": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Left side rail of seat frame",
+      "unit_of_measurement": "meters",
+      "formula": "base_width * 0.5",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.6,
+        "2-seater": 0.6,
+        "3-seater": 0.6,
+        "4-seater": 0.6,
+        "l-shape": 0.6
+      },
+      "default_material": "hardwood (pine/birch)",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by height",
+      "cad_box_scale_mode": "linear_width",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "seat_rail_right": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Right side rail of seat frame",
+      "unit_of_measurement": "meters",
+      "formula": "base_width * 0.5",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.6,
+        "2-seater": 0.6,
+        "3-seater": 0.6,
+        "4-seater": 0.6,
+        "l-shape": 0.6
+      },
+      "default_material": "hardwood (pine/birch)",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by height",
+      "cad_box_scale_mode": "linear_width",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "seat_cross_member": {
+      "category": "frame",
+      "dimension_type": "count",
+      "description": "Cross-bracing members (perpendicular to front-back rails)",
+      "unit_of_measurement": "pieces",
+      "formula": "ceil(base_width / 300) + 2",
+      "base_qty_by_sofa_type": {
+        "1-seater": 2.0,
+        "2-seater": 3.0,
+        "3-seater": 3.0,
+        "4-seater": 4.0,
+        "l-shape": 5.0
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "constant_mm",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "seat_deck_board": {
+      "category": "frame",
+      "dimension_type": "area",
+      "description": "Plywood deck/base supporting seat foam",
+      "unit_of_measurement": "square_meters",
+      "formula": "(base_length * base_width) / 1e6",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.8,
+        "2-seater": 1.2,
+        "3-seater": 1.6,
+        "4-seater": 2.0,
+        "l-shape": 2.5
+      },
+      "default_material": "plywood (15mm)",
+      "cost_per_unit": 620.0,
+      "scaling_rule": "area",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Plywood",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "webbing_strap": {
+      "category": "webbing_spring",
+      "dimension_type": "count",
+      "description": "Nylon webbing straps (horizontal rows under seat foam)",
+      "unit_of_measurement": "pieces",
+      "formula": "ceil(base_width / 150)",
+      "base_qty_by_sofa_type": {
+        "1-seater": 4.0,
+        "2-seater": 6.0,
+        "3-seater": 6.0,
+        "4-seater": 6.0,
+        "l-shape": 8.0
+      },
+      "default_material": "nylon webbing (50mm wide)",
+      "cost_per_unit": 12.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "count_based",
+      "fusion_folder": "Seat belts",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "spring_unit": {
+      "category": "webbing_spring",
+      "dimension_type": "count",
+      "description": "Coil spring or sinuous wire spring (seat support)",
+      "unit_of_measurement": "pieces",
+      "formula": "ceil((base_length * base_width) / 100000)",
+      "base_qty_by_sofa_type": {
+        "1-seater": 8.0,
+        "2-seater": 14.0,
+        "3-seater": 20.0,
+        "4-seater": 26.0,
+        "l-shape": 30.0
+      },
+      "default_material": "steel coil spring or sinuous wire",
+      "cost_per_unit": 25.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "count_based",
+      "fusion_folder": "Springs",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "spring_clip": {
+      "category": "webbing_spring",
+      "dimension_type": "count",
+      "description": "Clips/fasteners securing springs to frame",
+      "unit_of_measurement": "pieces",
+      "formula": "derived from spring_unit (typically 2-3 clips per spring)",
+      "base_qty_by_sofa_type": {
+        "1-seater": 16.0,
+        "2-seater": 28.0,
+        "3-seater": 40.0,
+        "4-seater": 52.0,
+        "l-shape": 60.0
+      },
+      "default_material": "metal clip",
+      "cost_per_unit": 2.0,
+      "scaling_rule": "derived from springs",
+      "cad_box_scale_mode": "count_based",
+      "fusion_folder": "Clips",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "back_rail_top": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Top horizontal rail of backrest frame",
+      "unit_of_measurement": "meters",
+      "formula": "base_length * 0.95",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.1,
+        "2-seater": 1.5,
+        "3-seater": 2.0,
+        "4-seater": 2.4,
+        "l-shape": 2.9
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "linear_length",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "back_rail_bottom": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Bottom horizontal rail of backrest frame (at base of back)",
+      "unit_of_measurement": "meters",
+      "formula": "base_length * 0.95",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.1,
+        "2-seater": 1.5,
+        "3-seater": 2.0,
+        "4-seater": 2.4,
+        "l-shape": 2.9
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "linear_length",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "back_cross_member": {
+      "category": "frame",
+      "dimension_type": "count",
+      "description": "Cross-bracing in back frame",
+      "unit_of_measurement": "pieces",
+      "formula": "ceil(base_length / 400) + 1",
+      "base_qty_by_sofa_type": {
+        "1-seater": 2.0,
+        "2-seater": 2.0,
+        "3-seater": 3.0,
+        "4-seater": 3.0,
+        "l-shape": 4.0
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "constant_mm",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "seat_foam": {
+      "category": "foam",
+      "dimension_type": "area",
+      "description": "Polyurethane foam for seat cushion (typically 100-150mm thick)",
+      "unit_of_measurement": "kg",
+      "formula": "(base_length * base_width) / 1e6 * 5.0",
+      "base_qty_by_sofa_type": {
+        "1-seater": 4.0,
+        "2-seater": 8.0,
+        "3-seater": 12.0,
+        "4-seater": 16.0,
+        "l-shape": 18.0
+      },
+      "default_material": "polyurethane foam, density 30-40 kg/m\u00b3",
+      "cost_per_unit": 210.0,
+      "scaling_rule": "area/volume",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Foam",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "back_foam": {
+      "category": "foam",
+      "dimension_type": "area",
+      "description": "Polyurethane foam for backrest cushion",
+      "unit_of_measurement": "kg",
+      "formula": "(base_length * base_height) / 1e6 * 3.0",
+      "base_qty_by_sofa_type": {
+        "1-seater": 2.5,
+        "2-seater": 5.0,
+        "3-seater": 7.5,
+        "4-seater": 10.0,
+        "l-shape": 11.0
+      },
+      "default_material": "polyurethane foam, density 25-35 kg/m\u00b3",
+      "cost_per_unit": 180.0,
+      "scaling_rule": "area/volume",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Foam",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "arm_foam": {
+      "category": "foam",
+      "dimension_type": "area",
+      "description": "Polyurethane foam for armrest cushions (left + right)",
+      "unit_of_measurement": "kg",
+      "formula": "(base_height * base_width * 0.4) / 1e6 * 2.0",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.0,
+        "2-seater": 1.5,
+        "3-seater": 2.0,
+        "4-seater": 2.5,
+        "l-shape": 3.0
+      },
+      "default_material": "polyurethane foam, density 30 kg/m\u00b3",
+      "cost_per_unit": 200.0,
+      "scaling_rule": "area/volume",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Foam",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "arm_post_front": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Front vertical post of armrest (left side)",
+      "unit_of_measurement": "meters",
+      "formula": "base_height * 0.7",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.6,
+        "2-seater": 0.6,
+        "3-seater": 0.6,
+        "4-seater": 0.6,
+        "l-shape": 0.6
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by height",
+      "cad_box_scale_mode": "linear_height",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "arm_post_back": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Back vertical post of armrest (left side)",
+      "unit_of_measurement": "meters",
+      "formula": "base_height * 0.7",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.6,
+        "2-seater": 0.6,
+        "3-seater": 0.6,
+        "4-seater": 0.6,
+        "l-shape": 0.6
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by height",
+      "cad_box_scale_mode": "linear_height",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "arm_top_rail": {
+      "category": "frame",
+      "dimension_type": "linear",
+      "description": "Top horizontal rail of armrest (connects front & back posts)",
+      "unit_of_measurement": "meters",
+      "formula": "base_width * 0.3",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.25,
+        "2-seater": 0.25,
+        "3-seater": 0.25,
+        "4-seater": 0.25,
+        "l-shape": 0.25
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 850.0,
+      "scaling_rule": "count by height",
+      "cad_box_scale_mode": "linear_width",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "fabric_seat": {
+      "category": "upholstery",
+      "dimension_type": "area",
+      "description": "Fabric covering for seat cushion (includes piping, seams)",
+      "unit_of_measurement": "square_meters",
+      "formula": "(base_length * base_width) / 1e6 * 1.25",
+      "base_qty_by_sofa_type": {
+        "1-seater": 2.2,
+        "2-seater": 3.3,
+        "3-seater": 4.4,
+        "4-seater": 5.5,
+        "l-shape": 6.0
+      },
+      "default_material": "upholstery fabric (mixed fibers)",
+      "cost_per_unit": 450.0,
+      "scaling_rule": "surface area",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Fabric",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "fabric_back": {
+      "category": "upholstery",
+      "dimension_type": "area",
+      "description": "Fabric covering for backrest",
+      "unit_of_measurement": "square_meters",
+      "formula": "(base_length * base_height * 0.4) / 1e6 * 1.2",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.5,
+        "2-seater": 2.2,
+        "3-seater": 2.9,
+        "4-seater": 3.6,
+        "l-shape": 4.5
+      },
+      "default_material": "upholstery fabric",
+      "cost_per_unit": 450.0,
+      "scaling_rule": "surface area",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Fabric",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "fabric_arm": {
+      "category": "upholstery",
+      "dimension_type": "area",
+      "description": "Fabric covering for both armrests",
+      "unit_of_measurement": "square_meters",
+      "formula": "(base_height * base_width * 0.4) / 1e6 * 1.15",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.8,
+        "2-seater": 1.2,
+        "3-seater": 1.6,
+        "4-seater": 2.0,
+        "l-shape": 2.5
+      },
+      "default_material": "upholstery fabric",
+      "cost_per_unit": 450.0,
+      "scaling_rule": "surface area",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Fabric",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "leg": {
+      "category": "hardware",
+      "dimension_type": "fixed",
+      "description": "Wooden or plastic leg (fixed count per sofa type)",
+      "unit_of_measurement": "pieces",
+      "formula": "fixed per sofa_type",
+      "base_qty_by_sofa_type": {
+        "1-seater": 4.0,
+        "2-seater": 4.0,
+        "3-seater": 4.0,
+        "4-seater": 6.0,
+        "l-shape": 6.0
+      },
+      "default_material": "wood (hardwood feet)",
+      "cost_per_unit": 90.0,
+      "scaling_rule": "fixed",
+      "cad_box_scale_mode": "fixed_height",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "corner_block": {
+      "category": "hardware",
+      "dimension_type": "fixed",
+      "description": "Corner reinforcement block (frame-to-leg junction)",
+      "unit_of_measurement": "pieces",
+      "formula": "fixed per sofa_type (typically 1 per leg)",
+      "base_qty_by_sofa_type": {
+        "1-seater": 4.0,
+        "2-seater": 4.0,
+        "3-seater": 4.0,
+        "4-seater": 6.0,
+        "l-shape": 6.0
+      },
+      "default_material": "hardwood",
+      "cost_per_unit": 30.0,
+      "scaling_rule": "fixed",
+      "cad_box_scale_mode": "constant_mm",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "hardware_fastener": {
+      "category": "hardware",
+      "dimension_type": "count",
+      "description": "Bolts, screws, nails for frame assembly",
+      "unit_of_measurement": "pieces",
+      "formula": "ceil((num_frame_members * 3) + 10)",
+      "base_qty_by_sofa_type": {
+        "1-seater": 20.0,
+        "2-seater": 28.0,
+        "3-seater": 36.0,
+        "4-seater": 44.0,
+        "l-shape": 52.0
+      },
+      "default_material": "steel fasteners (mixed)",
+      "cost_per_unit": 1.5,
+      "scaling_rule": "count by length",
+      "cad_box_scale_mode": "count_based",
+      "fusion_folder": "Clips",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "adhesive": {
+      "category": "misc",
+      "dimension_type": "area",
+      "description": "Wood glue, fabric adhesive, etc.",
+      "unit_of_measurement": "kg",
+      "formula": "(base_length * base_width * base_height) / 1e9 * 0.4",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.4,
+        "2-seater": 0.6,
+        "3-seater": 0.8,
+        "4-seater": 1.0,
+        "l-shape": 1.1
+      },
+      "default_material": "polyurethane glue / fabric adhesive",
+      "cost_per_unit": 140.0,
+      "scaling_rule": "3d volume",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Wood Frame",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "thread": {
+      "category": "misc",
+      "dimension_type": "area",
+      "description": "Sewing thread for upholstery seams",
+      "unit_of_measurement": "cones",
+      "formula": "ceil((surface_area_ratio * 1.0) / 2)",
+      "base_qty_by_sofa_type": {
+        "1-seater": 1.0,
+        "2-seater": 1.5,
+        "3-seater": 2.0,
+        "4-seater": 2.5,
+        "l-shape": 3.0
+      },
+      "default_material": "polyester thread",
+      "cost_per_unit": 60.0,
+      "scaling_rule": "surface area",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Fabric",
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "handle_foam": {
+      "category": "handle_foam",
+      "dimension_type": "count",
+      "description": "Foam padding for armrest handles",
+      "unit_of_measurement": "kg",
+      "formula": "base_height * base_width * 0.05",
+      "base_qty_by_sofa_type": {
+        "1-seater": 0.5,
+        "2-seater": 0.8,
+        "3-seater": 1.0,
+        "4-seater": 1.2,
+        "l-shape": 1.5
+      },
+      "default_material": "polyurethane foam, density 20-25 kg/m\u00b3",
+      "cost_per_unit": 150.0,
+      "scaling_rule": "count by height",
+      "cad_box_scale_mode": "area_based",
+      "fusion_folder": "Handle Foam",
+      "fusion_body_count": 10,
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "none"
+    },
+    "handle_frame": {
+      "category": "handle_frame",
+      "dimension_type": "count",
+      "description": "Wooden handle frame structure (graspable top rail for armrests)",
+      "unit_of_measurement": "pieces",
+      "formula": "2",
+      "base_qty_by_sofa_type": {
+        "1-seater": 2.0,
+        "2-seater": 2.0,
+        "3-seater": 2.0,
+        "4-seater": 2.0,
+        "l-shape": 3.0
+      },
+      "default_material": "hardwood (ash/oak)",
+      "cost_per_unit": 200.0,
+      "scaling_rule": "fixed",
+      "cad_box_scale_mode": "fixed_height",
+      "fusion_folder": "Handle Frame",
+      "fusion_body_count": 22,
+      "min_tolerance_mm": 0.1,
+      "jointery_type": "lap_joint"
+    }
+  },
+  "fusion_folders": {
+    "back_rest_belts": {
+      "folder_name": "Back rest belts",
+      "body_count": 15,
+      "category": "webbing",
+      "description": "Webbing straps supporting the back cushion",
+      "component_ids": [
+        "back_foam"
+      ],
+      "scaling_rule": "area-based (scales with back width \u00d7 height)"
+    },
+    "springs": {
+      "folder_name": "Springs",
+      "body_count": 11,
+      "category": "spring",
+      "description": "Coil springs and sinuous wire springs for seat support",
+      "component_ids": [
+        "spring_unit"
+      ],
+      "scaling_rule": "count-based (scales with seat area)"
+    },
+    "clips": {
+      "folder_name": "Clips",
+      "body_count": 45,
+      "category": "hardware",
+      "description": "Spring clips and fasteners (DERIVED from spring/belt counts, not independent)",
+      "component_ids": [
+        "spring_clip",
+        "hardware_fastener"
+      ],
+      "scaling_rule": "derived from spring_unit and webbing counts (typically 2-3 clips per spring)"
+    },
+    "seat_belts": {
+      "folder_name": "Seat belts",
+      "body_count": 3,
+      "category": "webbing",
+      "description": "Webbing straps supporting seat cushion",
+      "component_ids": [
+        "webbing_strap"
+      ],
+      "scaling_rule": "count-based (scales with seat width)"
+    },
+    "foam": {
+      "folder_name": "Foam",
+      "body_count": 6,
+      "category": "foam",
+      "description": "Polyurethane foam in different densities for seat, back, and arms",
+      "component_ids": [
+        "seat_foam",
+        "arm_foam"
+      ],
+      "scaling_rule": "area-based (scales with surface area)",
+      "material_variants": [
+        {
+          "name": "Foam Pink",
+          "density": "35 kg/m\u00b3",
+          "cost_index": 1.0
+        },
+        {
+          "name": "Foam Black",
+          "density": "40 kg/m\u00b3",
+          "cost_index": 1.2
+        }
+      ]
+    },
+    "wood_frame": {
+      "folder_name": "Wood Frame",
+      "body_count": 23,
+      "category": "frame",
+      "description": "Structural frame (seat rails, back rails, cross-members, armrest posts, legs, etc.)",
+      "component_ids": [
+        "seat_rail_front",
+        "seat_rail_back",
+        "seat_rail_left",
+        "seat_rail_right",
+        "seat_cross_member",
+        "back_rail_top",
+        "back_rail_bottom",
+        "back_cross_member",
+        "arm_post_front",
+        "arm_post_back",
+        "arm_top_rail",
+        "leg",
+        "corner_block",
+        "adhesive"
+      ],
+      "scaling_rule": "mixed (rails linear, cross-members count-based)"
+    },
+    "plywood": {
+      "folder_name": "Plywood",
+      "body_count": 2,
+      "category": "frame",
+      "description": "Plywood deck boards supporting seat foam",
+      "component_ids": [
+        "seat_deck_board"
+      ],
+      "scaling_rule": "area-based"
+    },
+    "handle_foam": {
+      "folder_name": "Handle Foam",
+      "body_count": 10,
+      "category": "handle_foam",
+      "description": "Foam padding on top of handles",
+      "component_ids": [
+        "handle_foam"
+      ],
+      "scaling_rule": "count-based (scales with number of handles)"
+    },
+    "fabric": {
+      "folder_name": "Fabric",
+      "body_count": 2,
+      "category": "upholstery",
+      "description": "Upholstery fabric covering (plain surfaces + nested trim instances)",
+      "component_ids": [
+        "fabric_seat",
+        "fabric_back",
+        "fabric_arm",
+        "thread"
+      ],
+      "scaling_rule": "area-based + instance_multiplier",
+      "nested_components": [
+        {
+          "name": "Body226",
+          "type": "nested_instances",
+          "count": 57,
+          "per_unit": true
+        }
+      ]
+    },
+    "handle_frame": {
+      "folder_name": "Handle Frame",
+      "body_count": 22,
+      "category": "handle_frame",
+      "description": "Wooden handle frame structure (graspable rails on armrests)",
+      "component_ids": [
+        "handle_frame"
+      ],
+      "scaling_rule": "fixed (2 handles standard)"
+    }
+  },
+  "lshape_config": {
+    "description": "L-shape sofa = straight module + chaise corner module, parametrically independent",
+    "straight_module": {
+      "sofa_type": "3-seater",
+      "description": "Main seating area (scales by base_length, base_width, base_height)"
+    },
+    "chaise_module": {
+      "sofa_type": "chaise",
+      "description": "Corner/lounge extension (scales by chaise_length, chaise_depth)",
+      "independent_parameters": {
+        "chaise_length": "length of chaise extension (mm)",
+        "chaise_depth": "depth of chaise extension (mm)",
+        "chaise_height": "height of chaise backrest (mm)",
+        "orientation": "left | right (which corner the chaise attaches to)"
+      },
+      "component_scaling_factor": 0.75
+    },
+    "join_logic": "shared_edge (chaise attaches to one end of straight module)",
+    "bom_computation": "straight_module_bom + chaise_module_bom"
+  },
+  "production_cad_defaults": {
+    "global_tolerance_mm": 0.1,
+    "material_tolerances": {
+      "hardwood": {
+        "linear": 0.5,
+        "thickness": 0.3
+      },
+      "plywood": {
+        "linear": 0.5,
+        "thickness": 0.2
+      },
+      "hardware": {
+        "linear": 0.1
+      }
+    },
+    "joinery_types": {
+      "lap_joint": {
+        "description": "Interlocking half-depth joints",
+        "depth_pct": 50
+      },
+      "butt_joint": {
+        "description": "Simple edge-to-edge with fasteners",
+        "depth_pct": 0
+      },
+      "dowel_joint": {
+        "description": "Wooden dowel reinforcement",
+        "dowel_mm": 8
+      },
+      "bracket_joint": {
+        "description": "Metal L-bracket reinforcement",
+        "type": "L-bracket"
+      }
+    },
+    "fastener_representation": {
+      "style": "simplified_cylinders",
+      "diameter_mm": 6,
+      "depth_mm": 20
+    }
+  },
+  "metadata": {
+    "total_components": 28,
+    "total_fusion_folders": 10,
+    "sofa_types": [
+      "1-seater",
+      "2-seater",
+      "3-seater",
+      "4-seater",
+      "l-shape"
+    ]
+  }
+}
