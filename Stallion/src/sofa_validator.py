@@ -24,6 +24,7 @@ Detection is split into two layers:
 import os
 import json
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import cv2
 
@@ -112,7 +113,10 @@ class YOLOv8DetectorBackend(SofaDetectorBase):
     """
 
     COUCH_CLASS_ID = 57          # COCO index for "couch"
-    MODEL_NAME     = "yolov8n.pt"
+    MODEL_NAME = str(
+    Path(__file__).resolve().parent.parent
+    / "data" / "models" / "weights" / "yolov8n.pt"
+)
 
     def __init__(self):
         from ultralytics import YOLO
@@ -166,7 +170,7 @@ class StallionSofaDetector(SofaDetectorBase):
         if weights_path:
             wp = Path(weights_path)
         else:
-            wp = proj_root / "models" / self.MODEL_WEIGHTS
+            wp = proj_root / "data" / "models" / "weights" / self.MODEL_WEIGHTS
 
         if not wp.exists():
             raise FileNotFoundError(
@@ -260,7 +264,7 @@ def get_detector(custom_weights: str = None) -> SofaDetectorBase:
     from pathlib import Path
     src_dir   = Path(__file__).parent.resolve()
     proj_root = src_dir.parent.resolve()
-    default_wp = proj_root / "models" / "sofa_detector.pt"
+    default_wp = proj_root / "data" / "models" / "weights" / "sofa_detector.pt"
 
     target = Path(custom_weights) if custom_weights else default_wp
 

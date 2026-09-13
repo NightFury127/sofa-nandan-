@@ -1,1872 +1,333 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stallion — Sofa Costing Engine</title>
-  <meta name="description" content="Upload a sofa image and get an instant BOM and cost quotation powered by AI." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <style>
-    /* ─────────────────────────────────────────────
-       DESIGN TOKENS
-    ───────────────────────────────────────────── */
-    :root {
-      --accent:       #7c3aed;
-      --accent-light: #a855f7;
-      --accent-glow:  rgba(124, 58, 237, 0.35);
-      --success:      #10b981;
-      --success-bg:   rgba(16, 185, 129, 0.12);
-      --error:        #ef4444;
-      --error-bg:     rgba(239, 68, 68, 0.12);
-      --warn:         #f59e0b;
-      --warn-bg:      rgba(245, 158, 11, 0.12);
-      --radius:       14px;
-      --radius-sm:    8px;
-      --transition:   0.22s cubic-bezier(0.4, 0, 0.2, 1);
-      --font:         'Inter', system-ui, sans-serif;
-    }
-
-    [data-theme="dark"] {
-      --bg:           #08080f;
-      --bg2:          #0f0f1a;
-      --surface:      rgba(255,255,255,0.04);
-      --surface-hover:rgba(255,255,255,0.07);
-      --border:       rgba(255,255,255,0.08);
-      --border-focus: rgba(124, 58, 237, 0.6);
-      --text:         #f1f5f9;
-      --text2:        #94a3b8;
-      --text3:        #475569;
-      --input-bg:     rgba(255,255,255,0.05);
-      --shadow:       0 25px 60px rgba(0,0,0,0.6);
-      --card-shadow:  0 4px 24px rgba(0,0,0,0.4);
-    }
-
-    [data-theme="light"] {
-      --bg:           #f1f5f9;
-      --bg2:          #e2e8f0;
-      --surface:      rgba(255,255,255,0.8);
-      --surface-hover:rgba(255,255,255,0.95);
-      --border:       rgba(0,0,0,0.08);
-      --border-focus: rgba(124, 58, 237, 0.5);
-      --text:         #0f172a;
-      --text2:        #475569;
-      --text3:        #94a3b8;
-      --input-bg:     rgba(255,255,255,0.9);
-      --shadow:       0 25px 60px rgba(0,0,0,0.12);
-      --card-shadow:  0 4px 24px rgba(0,0,0,0.08);
-    }
-
-    /* ─────────────────────────────────────────────
-       RESET & BASE
-    ───────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html { scroll-behavior: smooth; }
-
-    body {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      transition: background var(--transition), color var(--transition);
-      overflow-x: hidden;
-    }
-
-    /* Animated gradient background */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(124,58,237,0.08) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 80% 90%, rgba(168,85,247,0.06) 0%, transparent 60%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ─────────────────────────────────────────────
-       HEADER
-    ───────────────────────────────────────────── */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 2rem;
-      height: 64px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(20px);
-      transition: background var(--transition);
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 800;
-      font-size: 1.15rem;
-      letter-spacing: -0.3px;
-      color: var(--text);
-      text-decoration: none;
-    }
-
-    .logo-icon {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-light));
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-
-    .logo span { color: var(--text2); font-weight: 400; font-size: 0.85rem; margin-left: 4px; }
-
-    .header-right { display: flex; align-items: center; gap: 12px; }
-
-    .theme-toggle {
-      width: 44px;
-      height: 44px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text2);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      transition: all var(--transition);
-    }
-    .theme-toggle:hover { background: var(--surface-hover); color: var(--accent); border-color: var(--accent); }
-
-    /* ─────────────────────────────────────────────
-       MAIN LAYOUT
-    ───────────────────────────────────────────── */
-    main {
-      position: relative;
-      z-index: 1;
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem 6rem;
-    }
-
-    /* ─────────────────────────────────────────────
-       HERO
-    ───────────────────────────────────────────── */
-    .hero {
-      text-align: center;
-      margin-bottom: 2.5rem;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--accent-light);
-      background: rgba(124,58,237,0.12);
-      border: 1px solid rgba(124,58,237,0.25);
-      border-radius: 99px;
-      padding: 5px 14px;
-      margin-bottom: 1.25rem;
-    }
-
-    .hero h1 {
-      font-size: clamp(2rem, 5vw, 3rem);
-      font-weight: 900;
-      letter-spacing: -1.5px;
-      line-height: 1.1;
-      background: linear-gradient(135deg, var(--text) 0%, var(--text2) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 1rem;
-    }
-
-    .hero p {
-      font-size: 1rem;
-      color: var(--text2);
-      max-width: 480px;
-      margin: 0 auto;
-      line-height: 1.6;
-    }
-
-    /* ─────────────────────────────────────────────
-       CARD
-    ───────────────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      backdrop-filter: blur(20px);
-      box-shadow: var(--card-shadow);
-      transition: background var(--transition), border-color var(--transition);
-    }
-
-    /* ─────────────────────────────────────────────
-       FORM
-    ───────────────────────────────────────────── */
-    #form-section { transition: opacity 0.3s, transform 0.3s; }
-    #form-section.hidden { opacity: 0; pointer-events: none; transform: translateY(-12px); }
-
-    .form-card { padding: 2rem; }
-
-    /* Upload zone */
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 2.5rem 1.5rem;
-      text-align: center;
-      cursor: pointer;
-      transition: all var(--transition);
-      position: relative;
-      background: var(--input-bg);
-    }
-    .upload-zone:hover, .upload-zone.drag-over {
-      border-color: var(--accent);
-      background: rgba(124,58,237,0.06);
-    }
-    .upload-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-
-    .upload-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
-    .upload-title { font-weight: 600; font-size: 0.95rem; color: var(--text); margin-bottom: 4px; }
-    .upload-sub { font-size: 0.8rem; color: var(--text2); }
-
-    .upload-preview {
-      display: none;
-      align-items: center;
-      gap: 1rem;
-      padding: 1rem 1.5rem;
-      border: 1px solid var(--success);
-      border-radius: var(--radius);
-      background: var(--success-bg);
-      margin-top: 1rem;
-    }
-    .upload-preview.show { display: flex; }
-    .preview-thumb {
-      width: 60px;
-      height: 60px;
-      border-radius: 8px;
-      object-fit: cover;
-    }
-    .preview-info { flex: 1; text-align: left; }
-    .preview-name { font-weight: 600; font-size: 0.875rem; color: var(--text); }
-    .preview-size { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
-    .preview-remove {
-      background: none;
-      border: none;
-      color: var(--text3);
-      cursor: pointer;
-      font-size: 1.2rem;
-      padding: 4px;
-      border-radius: 6px;
-      transition: color var(--transition);
-    }
-    .preview-remove:hover { color: var(--error); }
-
-    /* Form grid */
-    .form-section-title {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text3);
-      margin: 1.75rem 0 0.875rem;
-    }
-
-    .dim-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px;
-    }
-
-    .form-group { display: flex; flex-direction: column; gap: 6px; }
-
-    label {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text2);
-    }
-
-    .input-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    input[type="text"],
-    input[type="number"] {
-      width: 100%;
-      padding: 10px 44px 10px 14px;
-      background: var(--input-bg);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: border-color var(--transition), background var(--transition);
-      outline: none;
-      -moz-appearance: textfield;
-    }
-    input::-webkit-outer-spin-button,
-    input::-webkit-inner-spin-button { -webkit-appearance: none; }
-
-    input:focus { border-color: var(--accent); background: var(--surface-hover); }
-    input.warn  { border-color: var(--warn); }
-    input.error { border-color: var(--error); }
-
-    .input-unit {
-      position: absolute;
-      right: 12px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--text3);
-      pointer-events: none;
-    }
-
-    .field-hint {
-      font-size: 0.72rem;
-      color: var(--warn);
-      display: none;
-      align-items: center;
-      gap: 4px;
-    }
-    .field-hint.show { display: flex; }
-
-    /* ─────────────────────────────────────────────
-       DIMENSION ESTIMATION BANNER
-    ───────────────────────────────────────────── */
-    #height-estimate-banner {
-      display: none;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 8px;
-      padding: 12px 14px;
-      border-radius: var(--radius-sm);
-      border-left: 3px solid var(--warn);
-      background: var(--warn-bg);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      border-left: 3px solid var(--warn);
-    }
-    #height-estimate-banner.show { display: flex; }
-    #height-estimate-banner.high-conf {
-      border-left-color: var(--success);
-      border-color: rgba(16, 185, 129, 0.3);
-      border-left: 3px solid var(--success);
-      background: var(--success-bg);
-    }
-
-    .est-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .est-label {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--warn);
-    }
-    #height-estimate-banner.high-conf .est-label { color: var(--success); }
-
-    .est-value {
-      font-size: 1.05rem;
-      font-weight: 800;
-      color: var(--text);
-      font-family: 'Inter', monospace;
-    }
-    .est-conf-pill {
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      padding: 2px 9px;
-      border-radius: 99px;
-      background: rgba(245,158,11,0.15);
-      color: var(--warn);
-    }
-    #height-estimate-banner.high-conf .est-conf-pill {
-      background: rgba(16,185,129,0.15);
-      color: var(--success);
-    }
-    .est-help {
-      font-size: 0.72rem;
-      color: var(--text2);
-      line-height: 1.5;
-    }
-    .est-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .btn-est-use {
-      padding: 6px 16px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: linear-gradient(135deg, var(--accent), var(--accent-light));
-      color: #fff;
-      font-family: var(--font);
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity var(--transition), transform var(--transition);
-    }
-    .btn-est-use:hover { opacity: 0.88; transform: translateY(-1px); }
-    .btn-est-manual {
-      padding: 6px 16px;
-      border-radius: var(--radius-sm);
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      color: var(--text2);
-      font-family: var(--font);
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .btn-est-manual:hover { border-color: var(--text2); color: var(--text); }
-
-    /* Small "estimated" marker shown on the height input when a suggestion was accepted */
-    .input-estimated-tag {
-      display: none;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--warn);
-      background: rgba(245,158,11,0.12);
-      border-radius: 4px;
-      padding: 1px 6px;
-      margin-top: 3px;
-    }
-    .input-estimated-tag.show { display: inline-block; }
-    .input-estimated-tag.confirmed { color: var(--success); background: rgba(16,185,129,0.12); }
-
-    /* Customer name */
-    .customer-input input { padding-right: 14px; }
-
-    /* Submit */
-    .btn-submit {
-      width: 100%;
-      margin-top: 1.75rem;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-light));
-      color: #fff;
-      border: none;
-      border-radius: var(--radius-sm);
-      font-family: var(--font);
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.02em;
-      position: relative;
-      overflow: hidden;
-      transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
-      box-shadow: 0 8px 24px var(--accent-glow);
-    }
-    .btn-submit:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 32px var(--accent-glow);
-    }
-    .btn-submit:active:not(:disabled) { transform: translateY(0); }
-    .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-    .btn-submit::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-      transform: translateX(-100%);
-      transition: transform 0.5s;
-    }
-    .btn-submit:hover:not(:disabled)::after { transform: translateX(100%); }
-
-    /* ─────────────────────────────────────────────
-       PROGRESS
-    ───────────────────────────────────────────── */
-    #progress-section {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      padding: 3rem 2rem;
-    }
-    #progress-section.show { display: flex; }
-
-    .progress-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.5rem;
-    }
-    .progress-sub { font-size: 0.85rem; color: var(--text2); margin-bottom: 2.5rem; }
-
-    .steps {
-      width: 100%;
-      max-width: 480px;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-
-    .step {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 0;
-      position: relative;
-    }
-    .step:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      left: 19px;
-      top: 46px;
-      width: 2px;
-      height: calc(100% - 16px);
-      background: var(--border);
-      transition: background 0.4s;
-    }
-    .step.done:not(:last-child)::after { background: var(--success); }
-
-    .step-dot {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 2px solid var(--border);
-      background: var(--surface);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-      transition: all 0.35s;
-      color: var(--text3);
-    }
-    .step.active .step-dot {
-      border-color: var(--accent);
-      background: rgba(124,58,237,0.12);
-      animation: pulse-dot 1.2s ease-in-out infinite;
-      color: var(--accent-light);
-    }
-    .step.done .step-dot {
-      border-color: var(--success);
-      background: var(--success-bg);
-      color: var(--success);
-      animation: none;
-    }
-    @keyframes pulse-dot {
-      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
-      50%       { box-shadow: 0 0 0 8px transparent; }
-    }
-
-    .step-info { flex: 1; }
-    .step-label { font-size: 0.9rem; font-weight: 600; color: var(--text); }
-    .step-desc  { font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
-
-    .step-status {
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 99px;
-      color: var(--text3);
-      background: var(--surface);
-    }
-    .step.active .step-status { color: var(--accent); background: rgba(124,58,237,0.1); }
-    .step.done   .step-status { color: var(--success); background: var(--success-bg); }
-
-    /* ─────────────────────────────────────────────
-       RESULTS
-    ───────────────────────────────────────────── */
-    #result-section { display: none; }
-    #result-section.show { display: block; animation: slideUp 0.4s ease; }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(24px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .result-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.5rem;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .result-title { font-size: 1.25rem; font-weight: 800; color: var(--text); }
-    .result-meta  { font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
-
-    .btn-new {
-      padding: 9px 20px;
-      border-radius: var(--radius-sm);
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      color: var(--text2);
-      font-family: var(--font);
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .btn-new:hover { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,0.07); }
-
-    .cad-files {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin: 0 0 1.5rem;
-    }
-    .cad-file {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      text-decoration: none;
-      color: var(--text);
-      min-width: 220px;
-      transition: all var(--transition);
-    }
-    .cad-file:hover { border-color: var(--accent); background: var(--surface-hover); }
-    .cad-file-ext {
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      color: var(--accent-light);
-      background: rgba(124,58,237,0.12);
-      border-radius: 6px;
-      padding: 6px 8px;
-    }
-    .cad-file-name { font-size: 0.88rem; font-weight: 600; }
-    .cad-file-hint { font-size: 0.72rem; color: var(--text2); margin-top: 2px; }
-
-    /* Detection badge */
-    .detection-card {
-      padding: 1.25rem 1.5rem;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-      flex-wrap: wrap;
-    }
-    .detection-icon { font-size: 2.2rem; }
-    .detection-info { flex: 1; }
-    .detection-type {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--success);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .detection-badge {
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 2px 9px;
-      border-radius: 99px;
-      background: var(--success-bg);
-      color: var(--success);
-    }
-    .detection-meta { font-size: 0.8rem; color: var(--text2); margin-top: 4px; }
-
-    .conf-bar-wrap { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-    .conf-bar {
-      flex: 1;
-      height: 6px;
-      background: var(--border);
-      border-radius: 99px;
-      overflow: hidden;
-    }
-    .conf-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--success), #34d399);
-      border-radius: 99px;
-      width: 0;
-      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
-    }
-    .conf-label { font-size: 0.75rem; font-weight: 700; color: var(--success); min-width: 36px; }
-
-    /* Annotated image */
-    .annotated-wrap {
-      margin-bottom: 1rem;
-      overflow: hidden;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-    }
-    .annotated-img {
-      width: 100%;
-      max-height: 340px;
-      object-fit: contain;
-      display: block;
-      background: #000;
-    }
-    .annotated-caption {
-      padding: 8px 14px;
-      font-size: 0.72rem;
-      color: var(--text2);
-      border-top: 1px solid var(--border);
-    }
-
-    /* Dimensions row */
-    .dim-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 1rem;
-    }
-    .dim-chip {
-      padding: 0.875rem 1rem;
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      text-align: center;
-    }
-    .dim-value { font-size: 1.2rem; font-weight: 800; color: var(--text); }
-    .dim-unit  { font-size: 0.68rem; color: var(--text3); margin-left: 2px; }
-    .dim-key   { font-size: 0.7rem; color: var(--text2); margin-top: 2px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-
-    /* Section header */
-    .section-label {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text3);
-      margin: 1.5rem 0 0.75rem;
-    }
-
-    /* BOM Table */
-    .bom-table-wrap {
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-    table { width: 100%; border-collapse: collapse; }
-    thead tr { background: var(--surface); }
-    th {
-      padding: 11px 14px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-      color: var(--text3);
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-    th:last-child, td:last-child { text-align: right; }
-    td {
-      padding: 11px 14px;
-      font-size: 0.85rem;
-      color: var(--text);
-      border-bottom: 1px solid var(--border);
-    }
-    tbody tr:last-child td { border-bottom: none; }
-    tbody tr:hover { background: var(--surface); }
-    .component-name { font-weight: 600; }
-    .scaling-pill {
-      display: inline-block;
-      font-size: 0.68rem;
-      padding: 2px 8px;
-      border-radius: 99px;
-      background: rgba(124,58,237,0.1);
-      color: var(--accent-light);
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .qty-val { font-weight: 600; font-family: monospace; font-size: 0.88rem; }
-    .cost-val { font-weight: 700; font-family: 'Inter', monospace; }
-
-    /* Cost breakdown card */
-    .quote-card { padding: 1.5rem; }
-    .quote-rows { display: flex; flex-direction: column; gap: 0; }
-
-    .quote-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.88rem;
-    }
-    .quote-row:last-child { border-bottom: none; }
-    .quote-row-key { color: var(--text2); }
-    .quote-row-val { font-weight: 600; color: var(--text); font-family: 'Inter', monospace; }
-    .quote-row.subtotal { border-top: 2px solid var(--border); margin-top: 4px; }
-    .quote-row.subtotal .quote-row-key { font-weight: 700; color: var(--text); }
-
-    .quote-final {
-      margin-top: 1.25rem;
-      padding: 1.25rem 1.5rem;
-      background: linear-gradient(135deg, rgba(124,58,237,0.1), rgba(168,85,247,0.08));
-      border: 1px solid rgba(124,58,237,0.25);
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .quote-final-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
-    .quote-final-label span { display: block; font-size: 0.72rem; font-weight: 400; color: var(--text2); margin-top: 2px; }
-    .quote-final-price {
-      font-size: 2rem;
-      font-weight: 900;
-      letter-spacing: -1px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-light));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    /* ─────────────────────────────────────────────
-       REJECTION PANEL
-    ───────────────────────────────────────────── */
-    #reject-section { display: none; }
-    #reject-section.show { display: block; animation: slideUp 0.4s ease; }
-
-    .reject-card {
-      padding: 2rem;
-      border-color: var(--error);
-      background: var(--error-bg);
-    }
-    .reject-icon { font-size: 3rem; margin-bottom: 1rem; }
-    .reject-title { font-size: 1.2rem; font-weight: 800; color: var(--error); margin-bottom: 0.5rem; }
-    .reject-reason { font-size: 0.9rem; color: var(--text2); line-height: 1.6; margin-bottom: 1rem; }
-
-    .reject-detail {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-size: 0.82rem;
-      color: var(--text2);
-      margin-bottom: 1.5rem;
-    }
-    .reject-detail strong { color: var(--text); }
-
-    .btn-retry {
-      padding: 11px 24px;
-      border-radius: var(--radius-sm);
-      border: none;
-      background: var(--surface);
-      border: 1.5px solid var(--border);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .btn-retry:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ─────────────────────────────────────────────
-       FUSION 360 PANEL
-    ───────────────────────────────────────────── */
-    .fusion-panel {
-      margin-top: 1.25rem;
-      border-radius: var(--radius);
-      border: 1px solid rgba(99, 179, 237, 0.25);
-      background: linear-gradient(135deg, rgba(56,189,248,0.06), rgba(99,102,241,0.06));
-      overflow: hidden;
-    }
-
-    .fusion-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid rgba(99,179,237,0.15);
-    }
-
-    .fusion-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 9px;
-      background: linear-gradient(135deg, #0696d7, #0369a1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .fusion-header-info { flex: 1; }
-    .fusion-header-title {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .fusion-header-sub {
-      font-size: 0.72rem;
-      color: var(--text2);
-      margin-top: 2px;
-    }
-
-    .fusion-status-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 99px;
-      background: rgba(16,185,129,0.12);
-      color: var(--success);
-      border: 1px solid rgba(16,185,129,0.25);
-    }
-    .fusion-status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      animation: blink 1.6s ease-in-out infinite;
-    }
-    @keyframes blink {
-      0%,100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    .fusion-params {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: rgba(99,179,237,0.1);
-    }
-    .fusion-param {
-      padding: 1rem;
-      background: var(--bg);
-      text-align: center;
-    }
-    .fusion-param-name {
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(99,179,237,0.7);
-      margin-bottom: 4px;
-    }
-    .fusion-param-val {
-      font-size: 1.3rem;
-      font-weight: 900;
-      color: #63b3ed;
-      letter-spacing: -0.5px;
-    }
-    .fusion-param-unit {
-      font-size: 0.68rem;
-      color: var(--text3);
-      margin-left: 2px;
-    }
-
-    .fusion-path-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0.875rem 1.25rem;
-      border-top: 1px solid rgba(99,179,237,0.1);
-      background: rgba(0,0,0,0.15);
-    }
-    .fusion-path-label {
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--text3);
-      white-space: nowrap;
-    }
-    .fusion-path-val {
-      flex: 1;
-      font-size: 0.72rem;
-      color: var(--text2);
-      font-family: 'Courier New', monospace;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 5px 10px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .fusion-copy-btn {
-      flex-shrink: 0;
-      padding: 5px 12px;
-      border-radius: 6px;
-      border: 1px solid rgba(99,179,237,0.3);
-      background: rgba(99,179,237,0.08);
-      color: #63b3ed;
-      font-family: var(--font);
-      font-size: 0.72rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all var(--transition);
-    }
-    .fusion-copy-btn:hover { background: rgba(99,179,237,0.18); }
-    .fusion-copy-btn.copied { color: var(--success); border-color: var(--success); background: var(--success-bg); }
-
-    .fusion-steps {
-      padding: 0.875rem 1.25rem;
-      border-top: 1px solid rgba(99,179,237,0.1);
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    .fusion-steps-icon { font-size: 0.85rem; margin-top: 1px; flex-shrink: 0; }
-    .fusion-steps-text {
-      font-size: 0.75rem;
-      color: var(--text2);
-      line-height: 1.55;
-    }
-    .fusion-steps-text strong { color: var(--text); }
-    .fusion-steps-text code {
-      font-family: 'Courier New', monospace;
-      font-size: 0.72rem;
-      background: var(--surface);
-      padding: 1px 5px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      color: #63b3ed;
-    }
-
-    /* ─────────────────────────────────────────────
-       RESPONSIVE
-    ───────────────────────────────────────────── */
-    @media (max-width: 600px) {
-      main { padding: 2rem 1rem 4rem; }
-      .dim-grid { grid-template-columns: 1fr 1fr; }
-      .dim-row  { grid-template-columns: 1fr 1fr 1fr; }
-      th, td { padding: 9px 10px; }
-      .quote-final-price { font-size: 1.5rem; }
-      .fusion-params { grid-template-columns: 1fr 1fr 1fr; }
-      .fusion-path-row { flex-wrap: wrap; }
-    }
-  </style>
+  <meta name="description" content="Stallion — intelligent furniture engineering and sofa costing studio." />
+  <title>STALLION — Furniture Engineering Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
+  <div class="noise"></div>
+  <div class="cursor-glow"></div>
 
-  <!-- ── HEADER ─────────────────────────────────────────── -->
-  <header>
-    <a class="logo" href="#">
-      <div class="logo-icon">🛋️</div>
-      STALLION <span>Sofa Costing Engine</span>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Stallion home">
+      <span class="brand-mark">S</span>
+      <span class="brand-word">STALLION</span>
+      <span class="brand-sub">FURNITURE ENGINEERING</span>
     </a>
-    <div class="header-right">
-      <button class="theme-toggle" id="theme-btn" title="Toggle theme" aria-label="Toggle dark/light mode">🌙</button>
+
+    <nav class="nav">
+      <a href="#studio">Studio</a>
+      <a href="#configure">Configure</a>
+      <a href="#results">Output</a>
+    </nav>
+
+    <div class="institution">
+      <img src="/static/assets/svce-logo.png" alt="Sri Venkateshwara College of Engineering" />
+      <span>SVCE · BENGALURU</span>
     </div>
   </header>
 
-  <main>
+  <main id="top">
+    <section class="hero" id="studio">
+      <div class="hero-grid"></div>
+      <div class="hero-kicker"><span></span> DIGITAL FURNITURE STUDIO / 01</div>
+      <h1>
+        FURNITURE,<br>
+        <em>ENGINEERED.</em>
+      </h1>
+      <p class="hero-copy">
+        From a single sofa image to a manufacturable specification,
+        scaled bill of materials and quotation.
+      </p>
 
-    <!-- ── HERO ─────────────────────────────────────────── -->
-    <div class="hero">
-      <div class="hero-badge">⚡ Phase 1–3 Active · AI-Powered</div>
-      <h1>Intelligent Sofa<br/>Cost Estimation</h1>
-      <p>Upload a sofa image and enter dimensions. Get a complete scaled BOM and cost quotation in seconds.</p>
-    </div>
+      <div class="hero-bottom">
+        <a class="circle-cta" href="#configure" aria-label="Start a project">
+          <span>START<br>PROJECT</span>
+          <b>↘</b>
+        </a>
+        <div class="hero-specs">
+          <span>IMAGE → GEOMETRY</span>
+          <span>GEOMETRY → COST</span>
+          <span>COST → CAD</span>
+        </div>
+      </div>
 
-    <!-- ── FORM ─────────────────────────────────────────── -->
-    <section id="form-section">
-      <div class="card form-card">
+      <div class="hero-object" aria-hidden="true">
+        <svg viewBox="0 0 900 520" class="sofa-wire">
+          <g fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M110 360 L140 245 Q150 205 190 190 L270 155 L690 155 Q735 170 752 220 L775 360 Z"/>
+            <path d="M150 245 Q210 225 275 235 L665 235 Q730 225 752 245"/>
+            <path d="M180 360 L185 405 M715 360 L710 405 M265 360 L260 405 M630 360 L635 405"/>
+            <path d="M225 190 L225 315 M675 190 L675 315"/>
+            <path d="M225 315 Q270 295 315 315 L585 315 Q630 295 675 315"/>
+            <path d="M315 235 L315 315 M585 235 L585 315"/>
+            <path d="M92 382 H793 M110 397 H775"/>
+            <path d="M110 425 H775" stroke-dasharray="3 7"/>
+          </g>
+          <g fill="currentColor" font-family="DM Mono, monospace" font-size="12">
+            <text x="390" y="145">W 2100</text>
+            <text x="785" y="285" transform="rotate(90 785 285)">H 850</text>
+            <text x="112" y="455">ENGINEERING PREVIEW / 001</text>
+          </g>
+        </svg>
+      </div>
+    </section>
 
-        <!-- Upload zone -->
-        <div class="upload-zone" id="upload-zone">
+    <section class="project-section" id="configure">
+      <div class="section-index">02 / PROJECT INPUT</div>
+      <div class="section-heading">
+        <h2>Bring us<br><em>the form.</em></h2>
+        <p>Upload a reference. Define the dimensions. Stallion handles the engineering layer.</p>
+      </div>
+
+      <form id="project-form" class="studio-form">
+        <div class="upload-panel" id="upload-zone">
           <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp" />
-          <div class="upload-icon">📷</div>
-          <div class="upload-title">Drag & drop sofa image here</div>
-          <div class="upload-sub">JPG, PNG or WEBP</div>
+          <div class="upload-grid"></div>
+          <div class="upload-copy">
+            <span class="mono">REFERENCE / 001</span>
+            <strong>DROP SOFA IMAGE</strong>
+            <span>JPG · PNG · WEBP</span>
+          </div>
+          <div class="upload-arrow">↗</div>
+          <div class="preview-stage" id="preview-stage">
+            <img id="preview-img" alt="Sofa preview" />
+          </div>
         </div>
 
-        <!-- Preview -->
-        <div class="upload-preview" id="upload-preview">
-          <img class="preview-thumb" id="preview-img" src="" alt="Preview" />
-          <div class="preview-info">
-            <div class="preview-name" id="preview-name">—</div>
-            <div class="preview-size" id="preview-size">—</div>
+        <div class="form-columns">
+          <div class="form-block">
+            <div class="field-label">SOFA CONFIGURATION</div>
+            <div class="sofa-types" id="sofa-types">
+              <button type="button" class="sofa-type active" data-type="1_seater">
+                <span class="type-number">01</span>
+                <svg viewBox="0 0 160 70"><path d="M25 52V32Q25 19 39 19H121Q135 19 135 32V52M25 35H135M42 35V52M118 35V52M36 52V62M124 52V62"/></svg>
+                <b>1 SEATER</b>
+              </button>
+              <button type="button" class="sofa-type" data-type="2_seater">
+                <span class="type-number">02</span>
+                <svg viewBox="0 0 160 70"><path d="M18 52V32Q18 19 32 19H128Q142 19 142 32V52M18 35H142M51 35V52M109 35V52M29 52V62M131 52V62"/></svg>
+                <b>2 SEATER</b>
+              </button>
+              <button type="button" class="sofa-type" data-type="3_seater">
+                <span class="type-number">03</span>
+                <svg viewBox="0 0 160 70"><path d="M12 52V32Q12 19 26 19H134Q148 19 148 32V52M12 35H148M48 35V52M80 35V52M112 35V52M23 52V62M137 52V62"/></svg>
+                <b>3 SEATER</b>
+              </button>
+              <button type="button" class="sofa-type" data-type="l_shape">
+                <span class="type-number">04</span>
+                <svg viewBox="0 0 160 70"><path d="M18 52V28Q18 18 29 18H92Q103 18 103 29V52H145V62H18ZM32 35H92M32 35V52M58 35V52M84 35V52M103 52V31Q103 22 113 22H132Q142 22 142 32V52"/></svg>
+                <b>L SHAPE</b>
+              </button>
+            </div>
           </div>
-          <button class="preview-remove" id="preview-remove" aria-label="Remove image">✕</button>
-        </div>
 
-        <!-- Dimensions -->
-        <div class="form-section-title">Sofa Dimensions</div>
-        <div class="dim-grid">
-          <div class="form-group">
-            <label for="length-input">Length</label>
-            <div class="input-wrap">
-              <input type="number" id="length-input" placeholder="2100" min="0" />
-              <span class="input-unit">mm</span>
+          <div class="form-block dimensions">
+            <div class="field-label">DIMENSIONS / MILLIMETRES</div>
+            <div class="dimension-grid">
+              <label><span>WIDTH</span><input id="length-input" type="number" min="1" placeholder="2100"><i>mm</i></label>
+              <label><span>DEPTH</span><input id="width-input" type="number" min="1" placeholder="900"><i>mm</i></label>
+              <label><span>HEIGHT</span><input id="height-input" type="number" min="1" placeholder="850"><i>mm</i></label>
             </div>
-            <div class="field-hint" id="length-hint">⚠ Typical 3-seater: 1800–2800 mm</div>
-          </div>
-          <div class="form-group">
-            <label for="width-input">Width / Depth</label>
-            <div class="input-wrap">
-              <input type="number" id="width-input" placeholder="900" min="0" />
-              <span class="input-unit">mm</span>
-            </div>
-            <div class="field-hint" id="width-hint">⚠ Typical range: 700–1200 mm</div>
-          </div>
-          <div class="form-group">
-            <label for="height-input">Height</label>
-            <div class="input-wrap">
-              <input type="number" id="height-input" placeholder="850" min="0" />
-              <span class="input-unit">mm</span>
-            </div>
-            <div class="field-hint" id="height-hint">⚠ Typical range: 650–1100 mm</div>
-            <span class="input-estimated-tag" id="height-estimated-tag">⚠ Estimated — please confirm</span>
-
-            <!-- Dimension estimation suggestion (populated after a quote run) -->
-            <div id="height-estimate-banner">
-              <div class="est-header">
-                <span class="est-label" id="est-label">💡 Suggested height</span>
-                <span class="est-value" id="est-value">—</span>
-                <span class="est-conf-pill" id="est-conf-pill">—</span>
-              </div>
-              <div class="est-help" id="est-help"></div>
-              <div class="est-actions">
-                <button class="btn-est-use"    id="btn-est-use"    type="button">Use This</button>
-                <button class="btn-est-manual" id="btn-est-manual" type="button">Enter Manually</button>
-              </div>
+            <div class="dimension-drawing">
+              <span class="dim-line horizontal">← <b>WIDTH</b> →</span>
+              <span class="dim-line vertical">↑ <b>HEIGHT</b> ↓</span>
+              <span class="dim-line depth">DEPTH ↗</span>
             </div>
           </div>
         </div>
 
-        <!-- Customer name -->
-        <div class="form-section-title">Customer Details</div>
-        <div class="form-group customer-input">
-          <label for="customer-input">Customer Name</label>
-          <div class="input-wrap">
-            <input type="text" id="customer-input" placeholder="e.g. Rajesh Kumar" />
-          </div>
+        <div class="form-footer">
+          <label class="customer-field">
+            <span>CLIENT / CUSTOMER</span>
+            <input id="customer-input" type="text" placeholder="Client name">
+          </label>
+          <button class="generate-button" id="submit-btn" type="submit" disabled>
+            <span>GENERATE SPECIFICATION</span><b>↗</b>
+          </button>
         </div>
+      </form>
+    </section>
 
-        <button class="btn-submit" id="submit-btn" disabled>Generate Quote →</button>
+    <section class="process-section">
+      <div class="section-index">03 / ENGINE</div>
+      <div class="process-title">ONE IMAGE.<br><em>FOUR LAYERS.</em></div>
+      <div class="process-line">
+        <div><span>01</span><b>DETECT</b><small>Geometry & type</small></div>
+        <i>→</i>
+        <div><span>02</span><b>SCALE</b><small>Manufacturing BOM</small></div>
+        <i>→</i>
+        <div><span>03</span><b>PRICE</b><small>Materials & labour</small></div>
+        <i>→</i>
+        <div><span>04</span><b>MODEL</b><small>CAD output</small></div>
       </div>
     </section>
 
-    <!-- ── PROGRESS ──────────────────────────────────────── -->
-    <section id="progress-section" class="card">
-      <div class="progress-title">Processing your request…</div>
-      <div class="progress-sub">This takes about 3–5 seconds</div>
-      <div class="steps" id="steps-list">
-        <div class="step" id="step-1">
-          <div class="step-dot">📤</div>
-          <div class="step-info">
-            <div class="step-label">Uploading Image</div>
-            <div class="step-desc">Sending image to the server</div>
-          </div>
-          <div class="step-status">Waiting</div>
-        </div>
-        <div class="step" id="step-2">
-          <div class="step-dot">🔍</div>
-          <div class="step-info">
-            <div class="step-label">Validating Sofa Type</div>
-            <div class="step-desc">YOLOv8 detection + type classification</div>
-          </div>
-          <div class="step-status">Waiting</div>
-        </div>
-        <div class="step" id="step-3">
-          <div class="step-dot">📐</div>
-          <div class="step-info">
-            <div class="step-label">Scaling BOM</div>
-            <div class="step-desc">Applying scaling factors to all components</div>
-          </div>
-          <div class="step-status">Waiting</div>
-        </div>
-        <div class="step" id="step-4">
-          <div class="step-dot">📐</div>
-          <div class="step-info">
-            <div class="step-label">Generating CAD</div>
-            <div class="step-desc">Writing STEP model and DXF drawing</div>
-          </div>
-          <div class="step-status">Waiting</div>
-        </div>
-      </div>
+    <section class="processing" id="processing">
+      <div class="processing-ring"></div>
+      <div class="mono">STALLION ENGINE / PROCESSING</div>
+      <h3 id="processing-title">READING FORM</h3>
+      <p id="processing-sub">Extracting furniture geometry and manufacturing parameters.</p>
+      <div class="progress-track"><span id="progress-bar"></span></div>
+      <div class="process-status" id="process-status">INITIALISING</div>
     </section>
 
-    <!-- ── RESULTS ───────────────────────────────────────── -->
-    <section id="result-section">
-
-      <div class="result-header">
+    <section class="results-section" id="results">
+      <div class="results-top">
         <div>
-          <div class="result-title">Quotation Generated ✓</div>
-          <div class="result-meta" id="result-meta"></div>
+          <div class="section-index">04 / OUTPUT</div>
+          <h2>SPECIFICATION<br><em>READY.</em></h2>
         </div>
-        <button class="btn-new" id="new-request-btn">+ New Request</button>
+        <button class="outline-button" id="new-request-btn">+ NEW PROJECT</button>
       </div>
 
-      <!-- Detection card -->
-      <div class="card detection-card" id="detection-card">
-        <div class="detection-icon">🛋️</div>
-        <div class="detection-info">
-          <div class="detection-type">
-            <span id="detected-type">3-Seater Sofa</span>
-            <span class="detection-badge" id="detected-badge">VERIFIED</span>
+      <div class="result-hero">
+        <div class="result-image" id="result-image-wrap">
+          <img id="annotated-img" alt="Detected sofa" />
+          <div class="image-overlay">DETECTION / YOLOv8</div>
+        </div>
+        <div class="result-ident">
+          <span class="mono">DETECTED CONFIGURATION</span>
+          <strong id="detected-type">—</strong>
+          <div class="confidence">
+            <span>CONFIDENCE</span><b id="conf-label">—</b>
+            <div><i id="conf-fill"></i></div>
           </div>
-          <div class="detection-meta" id="detected-meta"></div>
-          <div class="conf-bar-wrap">
-            <div class="conf-bar"><div class="conf-fill" id="conf-fill"></div></div>
-            <div class="conf-label" id="conf-label">—</div>
-          </div>
+          <p id="detected-meta">—</p>
         </div>
       </div>
 
-      <!-- Annotated image -->
-      <div class="annotated-wrap" id="annotated-wrap" style="display:none;">
-        <img class="annotated-img" id="annotated-img" src="" alt="Sofa detection" />
-        <div class="annotated-caption">🎯 YOLOv8 detection — bounding box drawn by Phase 3</div>
-      </div>
-
-      <!-- Dimensions -->
-      <div class="section-label">Request Dimensions</div>
-      <div class="dim-row">
-        <div class="dim-chip">
-          <div><span class="dim-value" id="r-length">—</span><span class="dim-unit">mm</span></div>
-          <div class="dim-key">Length</div>
-        </div>
-        <div class="dim-chip">
-          <div><span class="dim-value" id="r-width">—</span><span class="dim-unit">mm</span></div>
-          <div class="dim-key">Width</div>
-        </div>
-        <div class="dim-chip">
-          <div><span class="dim-value" id="r-height">—</span><span class="dim-unit">mm</span></div>
-          <div class="dim-key">Height</div>
-        </div>
-      </div>
-
-      <!-- CAD files -->
-      <div class="section-label">CAD Files</div>
-      <div class="cad-files" id="cad-files">
-        <div class="cad-file-hint" id="cad-files-empty">CAD files will appear here after generation.</div>
-      </div>
-
-      <!-- BOM Table -->
-      <div class="section-label">Scaled Bill of Materials</div>
-      <div class="bom-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Component</th>
-              <th>Scaling Rule</th>
-              <th style="text-align:right">Qty</th>
-              <th style="text-align:right">Unit Cost (₹)</th>
-              <th style="text-align:right">Total (₹)</th>
-            </tr>
-          </thead>
-          <tbody id="bom-tbody"></tbody>
-        </table>
-      </div>
-
-      <!-- Cost breakdown -->
-      <div class="section-label">Cost Breakdown</div>
-      <div class="card quote-card">
-        <div class="quote-rows" id="quote-rows"></div>
-        <div class="quote-final">
-          <div class="quote-final-label">
-            Final Quotation Price
-            <span>Inclusive of overhead & profit</span>
-          </div>
-          <div class="quote-final-price" id="final-price">₹—</div>
-        </div>
-      </div>
-
-      <!-- ── FUSION 360 PANEL ─────────────────────────────── -->
-      <div class="section-label">Fusion 360 Model Update</div>
-      <div class="fusion-panel" id="fusion-panel">
-
-        <div class="fusion-header">
-          <div class="fusion-logo">⬡</div>
-          <div class="fusion-header-info">
-            <div class="fusion-header-title">StallionLink — Fusion 360 Parameters</div>
-            <div class="fusion-header-sub">These values are written to <code style="font-size:0.7rem;font-family:monospace;color:#63b3ed">input_request.json</code> and loaded by the Fusion script</div>
-          </div>
-          <div class="fusion-status-badge">
-            <div class="fusion-status-dot"></div>
-            Ready
+      <div class="result-grid">
+        <div class="result-card dimensions-result">
+          <span class="mono">DIMENSIONS</span>
+          <div class="big-dims">
+            <div><b id="r-length">—</b><span>WIDTH / MM</span></div>
+            <div><b id="r-width">—</b><span>DEPTH / MM</span></div>
+            <div><b id="r-height">—</b><span>HEIGHT / MM</span></div>
           </div>
         </div>
 
+        <div class="result-card quote-result">
+          <span class="mono">FINAL QUOTATION</span>
+          <strong id="final-price">₹—</strong>
+          <span>INCLUDING OVERHEAD & PROFIT</span>
+        </div>
+      </div>
+
+      <div class="output-columns">
+        <div>
+          <div class="result-label">05 / BILL OF MATERIALS</div>
+          <div class="bom-table-wrap">
+            <table>
+              <thead><tr><th>COMPONENT</th><th>RULE</th><th>QTY</th><th>UNIT</th><th>TOTAL</th></tr></thead>
+              <tbody id="bom-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div class="result-label">06 / COST STRUCTURE</div>
+          <div class="cost-list" id="quote-rows"></div>
+        </div>
+      </div>
+
+      <div class="digital-twin">
+        <div class="twin-grid"></div>
+        <div class="twin-copy">
+          <span class="mono">07 / DIGITAL TWIN</span>
+          <h3>FROM SPEC<br>TO <em>CAD.</em></h3>
+          <p>Production-ready geometry and technical drawing outputs generated from the approved specification.</p>
+          <div class="cad-actions" id="cad-files">
+            <span>No CAD output available.</span>
+          </div>
+        </div>
+        <svg class="twin-sofa" viewBox="0 0 700 420" aria-hidden="true">
+          <g fill="none" stroke="currentColor">
+            <path d="M85 300V195Q85 135 145 120L210 92H510Q575 108 600 175V300Z" stroke-width="2"/>
+            <path d="M105 205H580M170 145V270M530 145V270M250 205V270M450 205V270" stroke-width="1"/>
+            <path d="M85 300H600M125 330H565M135 300V350M550 300V350" stroke-width="1"/>
+            <path d="M70 370H620M70 362V378M620 362V378" stroke-width="1"/>
+          </g>
+          <g fill="currentColor" font-family="DM Mono" font-size="11">
+            <text x="315" y="85">W</text><text x="635" y="220">H</text><text x="305" y="392">2100 MM</text>
+            <text x="102" y="115">STALLION / DIGITAL TWIN</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="fusion-strip">
+        <div><span class="mono">FUSION 360 / STALLIONLINK</span><b id="fp-path">—</b></div>
         <div class="fusion-params">
-          <div class="fusion-param">
-            <div class="fusion-param-name">Length</div>
-            <div><span class="fusion-param-val" id="fp-length">—</span><span class="fusion-param-unit">mm</span></div>
-          </div>
-          <div class="fusion-param">
-            <div class="fusion-param-name">Width</div>
-            <div><span class="fusion-param-val" id="fp-width">—</span><span class="fusion-param-unit">mm</span></div>
-          </div>
-          <div class="fusion-param">
-            <div class="fusion-param-name">Height</div>
-            <div><span class="fusion-param-val" id="fp-height">—</span><span class="fusion-param-unit">mm</span></div>
-          </div>
+          <span><b id="fp-length">—</b> L</span>
+          <span><b id="fp-width">—</b> D</span>
+          <span><b id="fp-height">—</b> H</span>
         </div>
-
-        <div class="fusion-path-row">
-          <span class="fusion-path-label">JSON Path</span>
-          <span class="fusion-path-val" id="fp-path">—</span>
-          <button class="fusion-copy-btn" id="fp-copy-btn" title="Copy path to clipboard">📋 Copy</button>
-        </div>
-
-        <div class="fusion-steps">
-          <span class="fusion-steps-icon">💡</span>
-          <span class="fusion-steps-text">
-            In Fusion 360 press <strong>Shift + S</strong> → select <strong>StallionLink</strong> → click <strong>Run</strong>,
-            then open the file at the path above. The parameters <code>Length</code>, <code>Width</code> and <code>Height</code>
-            will be created or updated automatically in your model.
-          </span>
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- ── REJECTION ─────────────────────────────────────── -->
-    <section id="reject-section">
-      <div class="card reject-card">
-        <div class="reject-icon">⚠️</div>
-        <div class="reject-title" id="reject-title">Sofa Type Not Supported</div>
-        <div class="reject-reason" id="reject-reason"></div>
-        <div class="reject-detail" id="reject-detail"></div>
-        <br/>
-        <button class="btn-retry" id="retry-btn">← Try Another Image</button>
+        <button id="fp-copy-btn">COPY PATH</button>
       </div>
     </section>
 
+    <section class="rejection" id="reject-section">
+      <div class="section-index">OUTPUT / REVIEW</div>
+      <h2 id="reject-title">INPUT<br><em>REVIEW.</em></h2>
+      <p id="reject-reason"></p>
+      <div id="reject-detail"></div>
+      <button class="outline-button" id="retry-btn">← TRY ANOTHER IMAGE</button>
+    </section>
   </main>
 
-  <script>
-    // ────────────────────────────────────────────────────────
-    // THEME
-    // ────────────────────────────────────────────────────────
-    const html     = document.documentElement;
-    const themeBtn = document.getElementById('theme-btn');
-    let theme = localStorage.getItem('stallion-theme') || 'dark';
-
-    function applyTheme(t) {
-      html.setAttribute('data-theme', t);
-      themeBtn.textContent = t === 'dark' ? '🌙' : '☀️';
-      localStorage.setItem('stallion-theme', t);
-    }
-
-    applyTheme(theme);
-    themeBtn.addEventListener('click', () => {
-      theme = theme === 'dark' ? 'light' : 'dark';
-      applyTheme(theme);
-    });
-
-    // ────────────────────────────────────────────────────────
-    // DOM REFS
-    // ────────────────────────────────────────────────────────
-    const uploadZone   = document.getElementById('upload-zone');
-    const imageInput   = document.getElementById('image-input');
-    const uploadPreview= document.getElementById('upload-preview');
-    const previewImg   = document.getElementById('preview-img');
-    const previewName  = document.getElementById('preview-name');
-    const previewSize  = document.getElementById('preview-size');
-    const previewRemove= document.getElementById('preview-remove');
-
-    const lengthInput  = document.getElementById('length-input');
-    const widthInput   = document.getElementById('width-input');
-    const heightInput  = document.getElementById('height-input');
-    const customerInput= document.getElementById('customer-input');
-    const submitBtn    = document.getElementById('submit-btn');
-
-    // Dimension estimation banner refs
-    const heightEstBanner  = document.getElementById('height-estimate-banner');
-    const heightEstTag     = document.getElementById('height-estimated-tag');
-    const estLabel         = document.getElementById('est-label');
-    const estValue         = document.getElementById('est-value');
-    const estConfPill      = document.getElementById('est-conf-pill');
-    const estHelp          = document.getElementById('est-help');
-    const btnEstUse        = document.getElementById('btn-est-use');
-    const btnEstManual     = document.getElementById('btn-est-manual');
-
-    // Track whether the current height value was set from an estimate
-    let _heightIsEstimated = false;
-
-    const formSection    = document.getElementById('form-section');
-    const progressSection= document.getElementById('progress-section');
-    const resultSection  = document.getElementById('result-section');
-    const rejectSection  = document.getElementById('reject-section');
-
-    let uploadedFile = null;
-
-    // ────────────────────────────────────────────────────────
-    // IMAGE UPLOAD
-    // ────────────────────────────────────────────────────────
-    uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
-    uploadZone.addEventListener('drop', e => {
-      e.preventDefault();
-      uploadZone.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (file) setFile(file);
-    });
-    imageInput.addEventListener('change', () => {
-      if (imageInput.files[0]) setFile(imageInput.files[0]);
-    });
-
-    function setFile(file) {
-      uploadedFile = file;
-      const url = URL.createObjectURL(file);
-      previewImg.src = url;
-      previewName.textContent = file.name;
-      previewSize.textContent = formatBytes(file.size);
-      uploadPreview.classList.add('show');
-      checkSubmit();
-    }
-
-    function clearFile() {
-      uploadedFile = null;
-      imageInput.value = '';
-      uploadPreview.classList.remove('show');
-      previewImg.src = '';
-      checkSubmit();
-    }
-
-    previewRemove.addEventListener('click', clearFile);
-
-    function formatBytes(b) {
-      if (b < 1024) return b + ' B';
-      if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
-      return (b/1024/1024).toFixed(2) + ' MB';
-    }
-
-    // ────────────────────────────────────────────────────────
-    // DIMENSION VALIDATION
-    // ────────────────────────────────────────────────────────
-    const dimRules = {
-      'length-input': { min: 1500, max: 3500, hint: 'length-hint' },
-      'width-input':  { min: 700,  max: 1400, hint: 'width-hint'  },
-      'height-input': { min: 600,  max: 1200, hint: 'height-hint' },
-    };
-
-    [lengthInput, widthInput].forEach(inp => {
-      inp.addEventListener('input', () => {
-        const rule = dimRules[inp.id];
-        const v = parseFloat(inp.value);
-        const hint = document.getElementById(rule.hint);
-        if (inp.value && (v < rule.min || v > rule.max)) {
-          inp.classList.add('warn');
-          hint.classList.add('show');
-        } else {
-          inp.classList.remove('warn');
-          hint.classList.remove('show');
-        }
-        checkSubmit();
-      });
-    });
-
-    function checkSubmit() {
-      const hasFile = !!uploadedFile;
-      const hasL = lengthInput.value > 0;
-      const hasW = widthInput.value > 0;
-      const hasH = heightInput.value > 0;
-      submitBtn.disabled = !(hasFile && hasL && hasW && hasH);
-    }
-
-    customerInput.addEventListener('input', checkSubmit);
-
-    // ────────────────────────────────────────────────────────
-    // DIMENSION ESTIMATION UX
-    // ────────────────────────────────────────────────────────
-
-    /**
-     * Render the height estimation suggestion banner.
-     * Called from renderResults() whenever the API returns estimated_dimensions.
-     *
-     * Shows the banner only when:
-     *   - estimated_dimensions exists in the response
-     *   - suppressed !== true
-     *   - overall_height_mm.confidence >= 0.5
-     *   - overall_height_mm.value is a valid positive number
-     *
-     * Never overwrites a value the user has already typed (unless they click "Use This").
-     */
-    function renderEstimation(estimatedDims) {
-      // Guard: hide banner if estimation is absent, suppressed, or invalid
-      if (!estimatedDims) { hideEstBanner(); return; }
-
-      const h = estimatedDims.overall_height_mm;
-      if (!h || estimatedDims.suppressed === true) { hideEstBanner(); return; }
-
-      const val  = parseFloat(h.value);
-      const conf = parseFloat(h.confidence);
-      if (!isFinite(val) || val <= 0 || !isFinite(conf) || conf < 0.5) {
-        hideEstBanner();
-        return;
-      }
-
-      const valRounded = Math.round(val);
-      const confPct    = Math.round(conf * 100);
-      const isHighConf = conf >= 0.8;
-
-      // Populate label / value / confidence pill
-      estLabel.textContent    = isHighConf ? '✓ Suggested height' : '⚠ Suggested height';
-      estValue.textContent    = valRounded + ' mm';
-      estConfPill.textContent = confPct + '% confidence';
-
-      // Help text: use reason from API if available, otherwise generic
-      const reason = estimatedDims.reason || '';
-      estHelp.textContent = reason ||
-        'Estimated from the sofa silhouette in your image. Please verify against actual ' +
-        'measurements before submitting. Depth cannot be inferred from a photo.';
-
-      // Style: high-conf gets green, low-med gets amber
-      if (isHighConf) {
-        heightEstBanner.classList.add('high-conf');
-      } else {
-        heightEstBanner.classList.remove('high-conf');
-      }
-
-      // Store the suggested value on the button for use by the handler
-      btnEstUse.dataset.suggestedValue = valRounded;
-
-      // Show the banner only if the user has NOT already typed a height manually.
-      // If they already have a value, still show it but label as "update available".
-      const existingVal = heightInput.value.trim();
-      if (!existingVal || existingVal === '0') {
-        // No value yet — show suggestion prominently
-        heightEstBanner.classList.add('show');
-      } else if (!_heightIsEstimated) {
-        // User typed a value manually — still show, but soften label
-        estLabel.textContent = isHighConf ? '✓ Height suggestion available' : '⚠ Height suggestion available';
-        heightEstBanner.classList.add('show');
-      }
-      // If _heightIsEstimated is true, the value already came from us — no need to re-show.
-    }
-
-    function hideEstBanner() {
-      heightEstBanner.classList.remove('show', 'high-conf');
-    }
-
-    function clearEstimationState() {
-      hideEstBanner();
-      heightEstTag.classList.remove('show', 'confirmed');
-      _heightIsEstimated = false;
-    }
-
-    // "Use This" — populate height field with estimate, mark as estimated
-    btnEstUse.addEventListener('click', () => {
-      const suggested = btnEstUse.dataset.suggestedValue;
-      if (!suggested) return;
-
-      heightInput.value = suggested;
-      _heightIsEstimated = true;
-
-      // Show the "Estimated — please confirm" tag below the input
-      heightEstTag.textContent = '⚠ Estimated — please confirm';
-      heightEstTag.classList.add('show');
-      heightEstTag.classList.remove('confirmed');
-
-      // Hide the banner now that the field is populated
-      hideEstBanner();
-      checkSubmit();
-      heightInput.focus();
-    });
-
-    // "Enter Manually" — hide banner, clear any estimated state, focus input
-    btnEstManual.addEventListener('click', () => {
-      hideEstBanner();
-      _heightIsEstimated = false;
-      heightEstTag.classList.remove('show', 'confirmed');
-      heightInput.focus();
-    });
-
-    // When user edits height manually after an estimate was accepted, clear the estimated tag
-    heightInput.addEventListener('input', () => {
-      if (_heightIsEstimated) {
-        _heightIsEstimated = false;
-        heightEstTag.classList.remove('show', 'confirmed');
-      }
-      // Run original dim validation
-      const rule = dimRules['height-input'];
-      const v = parseFloat(heightInput.value);
-      const hint = document.getElementById(rule.hint);
-      if (heightInput.value && (v < rule.min || v > rule.max)) {
-        heightInput.classList.add('warn');
-        hint.classList.add('show');
-      } else {
-        heightInput.classList.remove('warn');
-        hint.classList.remove('show');
-      }
-      checkSubmit();
-    });
-
-    // ────────────────────────────────────────────────────────
-    // FORM SUBMIT
-    // ────────────────────────────────────────────────────────
-    submitBtn.addEventListener('click', async () => {
-      if (!uploadedFile) return;
-
-      showSection('progress');
-      animateSteps();
-
-      const fd = new FormData();
-      fd.append('image', uploadedFile);
-      fd.append('customer_name', customerInput.value.trim() || 'Guest');
-      fd.append('length_mm', lengthInput.value);
-      fd.append('width_mm',  widthInput.value);
-      fd.append('height_mm', heightInput.value);
-
-      try {
-        const resp = await fetch('/api/quote', { method: 'POST', body: fd });
-        const data = await resp.json();
-        stopSteps();
-
-        if (data.status === 'success') {
-          renderResults(data);
-          showSection('result');
-        } else if (data.status === 'rejected') {
-          renderRejection(data);
-          showSection('reject');
-        } else {
-          renderRejection({ reason: data.reason || 'Unknown error', sofa_analysis: {} });
-          showSection('reject');
-        }
-      } catch (err) {
-        stopSteps();
-        renderRejection({ reason: 'Network error: ' + err.message, sofa_analysis: {} });
-        showSection('reject');
-      }
-    });
-
-    // ────────────────────────────────────────────────────────
-    // SECTION SWITCHING
-    // ────────────────────────────────────────────────────────
-    function showSection(name) {
-      formSection.classList.toggle('hidden', name !== 'form');
-      progressSection.classList.toggle('show', name === 'progress');
-      resultSection.classList.toggle('show', name === 'result');
-      rejectSection.classList.toggle('show', name === 'reject');
-      if (name !== 'progress') progressSection.classList.remove('show');
-    }
-
-    document.getElementById('new-request-btn').addEventListener('click', resetForm);
-    document.getElementById('retry-btn').addEventListener('click', resetForm);
-
-    function resetForm() {
-      clearFile();
-      lengthInput.value = widthInput.value = heightInput.value = customerInput.value = '';
-      [lengthInput, widthInput, heightInput].forEach(i => {
-        i.classList.remove('warn', 'error');
-        document.getElementById(dimRules[i.id].hint).classList.remove('show');
-      });
-      clearEstimationState();
-      showSection('form');
-      formSection.classList.remove('hidden');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // ────────────────────────────────────────────────────────
-    // PROGRESS ANIMATION
-    // ────────────────────────────────────────────────────────
-    let stepTimers = [];
-
-    function animateSteps() {
-      const steps = [1,2,3,4];
-      steps.forEach(n => {
-        const el = document.getElementById(`step-${n}`);
-        el.classList.remove('active','done');
-        el.querySelector('.step-status').textContent = 'Waiting';
-      });
-
-      function activate(n, delay) {
-        const t = setTimeout(() => {
-          const prev = document.getElementById(`step-${n-1}`);
-          if (prev) markDone(prev);
-          const el = document.getElementById(`step-${n}`);
-          el.classList.add('active');
-          el.querySelector('.step-status').textContent = 'Running…';
-        }, delay);
-        stepTimers.push(t);
-      }
-
-      activate(1, 100);
-      activate(2, 900);
-      activate(3, 2200);
-      activate(4, 3500);
-    }
-
-    function markDone(el) {
-      el.classList.remove('active');
-      el.classList.add('done');
-      el.querySelector('.step-status').textContent = 'Done';
-    }
-
-    function stopSteps() {
-      stepTimers.forEach(clearTimeout);
-      stepTimers = [];
-      [1,2,3,4].forEach(n => markDone(document.getElementById(`step-${n}`)));
-    }
-
-    // ────────────────────────────────────────────────────────
-    // RENDER RESULTS
-    // ────────────────────────────────────────────────────────
-    function renderResults(data) {
-      // Meta
-      document.getElementById('result-meta').textContent =
-        `Request ID: ${data.request_id}  ·  Customer: ${data.customer_name}`;
-
-      // ── Dimension estimation suggestion ──────────────────────────────────
-      // Render before showing results so the suggestion is ready if user scrolls
-      // back to the form.  Safe to call with undefined — function handles it.
-      renderEstimation(data.estimated_dimensions);
-
-      // Detection card
-      const sa = data.sofa_analysis || {};
-      const typeMap = {
-        '3_seater': '3-Seater Sofa', '2_seater': '2-Seater', '1_seater': 'Armchair',
-        'l_shape': 'L-Shape', '4_seater_plus': '4-Seater+',
-      };
-      document.getElementById('detected-type').textContent = typeMap[sa.predicted_type] || sa.predicted_type || '—';
-      document.getElementById('detected-meta').textContent =
-        `Bbox: ${(sa.bbox||[]).join(', ')}  ·  Aspect ratio: ${sa.aspect_ratio || '—'}  ·  Backend: ${sa.detector_backend || 'YOLOv8'}`;
-
-      const confPct = Math.round((sa.confidence || 0) * 100);
-      document.getElementById('conf-label').textContent = confPct + '%';
-      setTimeout(() => { document.getElementById('conf-fill').style.width = confPct + '%'; }, 200);
-
-      // Annotated image
-      if (data.annotated_image_url) {
-        document.getElementById('annotated-img').src = data.annotated_image_url;
-        document.getElementById('annotated-wrap').style.display = 'block';
-      }
-
-      // Dimensions
-      const dims = data.dimensions_mm || {};
-      document.getElementById('r-length').textContent = dims.length || '—';
-      document.getElementById('r-width').textContent  = dims.width  || '—';
-      document.getElementById('r-height').textContent = dims.height || '—';
-
-      const cadWrap = document.getElementById('cad-files');
-      const cadItems = [];
-      if (data.cad_step_url) {
-        cadItems.push({ url: data.cad_step_url, ext: 'STEP', name: '3D CAD model', hint: 'Open in Fusion 360 / SolidWorks / AutoCAD' });
-      }
-      if (data.cad_dxf_url) {
-        cadItems.push({ url: data.cad_dxf_url, ext: 'DXF', name: '2D technical drawing', hint: 'Top / front / side views with dimensions' });
-      }
-      if (data.cad_preview_url) {
-        cadItems.push({ url: data.cad_preview_url, ext: 'PNG', name: 'Drawing preview', hint: 'Quick view of the CAD sheet' });
-      }
-      cadWrap.innerHTML = cadItems.length
-        ? cadItems.map(item => `
-            <a class="cad-file" href="${item.url}" download>
-              <span class="cad-file-ext">${item.ext}</span>
-              <span>
-                <div class="cad-file-name">${item.name}</div>
-                <div class="cad-file-hint">${item.hint}</div>
-              </span>
-            </a>
-          `).join('')
-        : '<div class="cad-file-hint">No CAD file was generated for this request.</div>';
-
-      // Fusion 360 panel
-      document.getElementById('fp-length').textContent = dims.length || '—';
-      document.getElementById('fp-width').textContent  = dims.width  || '—';
-      document.getElementById('fp-height').textContent = dims.height || '—';
-      const fusionPath = data.input_request_path || data.request_id
-        ? `outputs/requests/${data.request_id}/input_request.json`
-        : '—';
-      document.getElementById('fp-path').textContent = fusionPath;
-      document.getElementById('fp-path').title = fusionPath;
-
-      // Copy button
-      const copyBtn = document.getElementById('fp-copy-btn');
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(fusionPath).then(() => {
-          copyBtn.textContent = '✓ Copied!';
-          copyBtn.classList.add('copied');
-          setTimeout(() => { copyBtn.textContent = '📋 Copy'; copyBtn.classList.remove('copied'); }, 2000);
-        });
-      };
-
-      // BOM Table
-      const tbody = document.getElementById('bom-tbody');
-      tbody.innerHTML = (data.bom || []).map(row => `
-        <tr>
-          <td class="component-name">${row.component}</td>
-          <td><span class="scaling-pill">${row.scaling_rule}</span></td>
-          <td style="text-align:right" class="qty-val">${row.qty}</td>
-          <td style="text-align:right">₹${fmt(row.unit_cost)}</td>
-          <td style="text-align:right" class="cost-val">₹${fmt(row.total_cost)}</td>
-        </tr>
-      `).join('');
-
-      // Quote rows
-      const q = data.quote || {};
-      const quoteRows = [
-        ['Material Cost',    q.material_cost],
-        ['Labour Cost',      q.labor_cost],
-        ['Finishing Cost',   q.finishing_cost],
-        ['Subtotal',         q.subtotal, true],
-        ['Overhead (10%)',   q.overhead],
-        ['Cost + Overhead',  q.cost_after_overhead],
-        ['Profit (20%)',     q.profit],
-      ];
-      document.getElementById('quote-rows').innerHTML = quoteRows.map(([k,v,sub]) => `
-        <div class="quote-row${sub ? ' subtotal' : ''}">
-          <span class="quote-row-key">${k}</span>
-          <span class="quote-row-val">₹${fmt(v)}</span>
-        </div>
-      `).join('');
-
-      document.getElementById('final-price').textContent =
-        '₹' + fmt(q.final_quotation_price);
-    }
-
-    // ────────────────────────────────────────────────────────
-    // RENDER REJECTION
-    // ────────────────────────────────────────────────────────
-    function renderRejection(data) {
-      const sa = data.sofa_analysis || {};
-      const isNoSofa = !sa.detected_object;
-
-      document.getElementById('reject-title').textContent =
-        isNoSofa ? 'No Sofa Detected' : 'Sofa Type Not Supported';
-
-      document.getElementById('reject-reason').textContent = data.reason || 'Unknown error.';
-
-      const typeMap = {
-        '1_seater': '1-Seater (Armchair)', '2_seater': '2-Seater (Loveseat)',
-        'l_shape': 'L-Shape / Sectional', '4_seater_plus': '4-Seater / Large Sofa',
-      };
-      if (sa.predicted_type) {
-        document.getElementById('reject-detail').innerHTML =
-          `Detected: <strong>${typeMap[sa.predicted_type] || sa.predicted_type}</strong>
-           &nbsp;·&nbsp; Confidence: <strong>${Math.round((sa.confidence||0)*100)}%</strong>`;
-      } else {
-        document.getElementById('reject-detail').innerHTML =
-          '🔍 YOLO could not find any sofa in the image.';
-      }
-    }
-
-    // ────────────────────────────────────────────────────────
-    // UTIL
-    // ────────────────────────────────────────────────────────
-    function fmt(n) {
-      if (n === undefined || n === null) return '—';
-      return Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-  </script>
+  <footer>
+    <div class="footer-brand">STALLION</div>
+    <div>FURNITURE ENGINEERING / DIGITAL COSTING / CAD</div>
+    <div class="footer-svce"><img src="/static/assets/svce-logo.png" alt="SVCE"> SRI VENKATESHWARA COLLEGE OF ENGINEERING</div>
+  </footer>
+
+<!-- Full-screen detection inspection viewer -->
+<div class="inspection-viewer" id="inspection-viewer" aria-hidden="true">
+  <div class="inspection-viewer-top">
+    <span class="mono">STALLION / DETECTION INSPECTION</span>
+    <button class="inspection-close" id="inspection-close" type="button">
+      CLOSE <span>�</span>
+    </button>
+  </div>
+
+  <div class="inspection-viewer-stage">
+    <div class="inspection-viewer-frame">
+      <img id="inspection-viewer-img" alt="Full-size detected sofa" />
+      <div class="inspection-corner top-left"></div>
+      <div class="inspection-corner top-right"></div>
+      <div class="inspection-corner bottom-left"></div>
+      <div class="inspection-corner bottom-right"></div>
+    </div>
+
+    <div class="inspection-viewer-info">
+      <span class="mono">DETECTED CONFIGURATION</span>
+      <strong id="inspection-viewer-type">�</strong>
+
+      <div class="inspection-viewer-confidence">
+        <span class="mono">CONFIDENCE</span>
+        <b id="inspection-viewer-confidence">�</b>
+      </div>
+
+      <p id="inspection-viewer-meta">�</p>
+    </div>
+  </div>
+
+  <div class="inspection-viewer-bottom">
+    <span class="mono">IMAGE / ANNOTATED OUTPUT</span>
+    <span class="mono">ESC TO CLOSE</span>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
 </body>
 </html>
+
+
+
+

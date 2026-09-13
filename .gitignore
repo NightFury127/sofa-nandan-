@@ -1,22 +1,30 @@
-﻿@"
-# Python
+﻿# Python environments
 .venv/
 venv/
 env/
+
+# Python cache
 __pycache__/
 *.py[cod]
 
-# ML datasets
-Stallion/data/ml_dataset/
-Stallion/data/sample_inputs/
-Stallion/data/sample_outputs/
+# Local datasets
+Stallion/data/datasets/
 
-# Large trained models
+# Local inputs
+Stallion/data/inputs/
+
+# Generated outputs
+Stallion/data/outputs/
+
+# Local ML models
+Stallion/data/models/
+
+# Large ML assets
 *.pt
 *.pth
 *.onnx
 
-# CAD/generated files
+# CAD / generated binary assets
 *.f3z
 *.step
 *.stp
@@ -24,25 +32,20 @@ Stallion/data/sample_outputs/
 *.igs
 *.stl
 
-# Generated output
-Stallion/output/
-Stallion/outputs/
-Stallion/generated/
-Stallion/generated_outputs/
-
-# Test/sample images
+# Test images
 Stallion/test_sofa.jpg
 Stallion/test_sofa_nobg.jpg
 
-# Environment / secrets
+# Secrets
 .env
 .env.*
+!.env.example
 
 # IDE
 .vscode/
 .idea/
 
-# Logs/temp
+# Logs / temporary files
 *.log
 *.tmp
 *.temp
@@ -50,4 +53,3 @@ Stallion/test_sofa_nobg.jpg
 # OS
 .DS_Store
 Thumbs.db
-"@ | Out-File -Encoding utf8 .gitignore

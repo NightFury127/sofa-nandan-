@@ -63,11 +63,10 @@ app.add_middleware(
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/outputs", StaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")
 
-# Serve frontend static assets (CSS, JS, icons)
-FRONTEND_DIR.mkdir(parents=True, exist_ok=True)
+# Serve frontend static assets
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
-# Ensure CAD output folder exists
+
 (OUTPUTS_DIR / "cad").mkdir(parents=True, exist_ok=True)
 
 
@@ -344,4 +343,8 @@ async def create_quote(
         "cad_3d_preview_url": cad_3d_prev_url,
         **({"cad_error": cad_error} if cad_error else {}),
     })
+
+
+
+
 
