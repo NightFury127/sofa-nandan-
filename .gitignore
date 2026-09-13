@@ -1,12 +1,53 @@
-﻿node_modules/
+﻿@"
+# Python
 .venv/
 venv/
+env/
 __pycache__/
-*.pyc
+*.py[cod]
+
+# ML datasets
+Stallion/data/ml_dataset/
+Stallion/data/sample_inputs/
+Stallion/data/sample_outputs/
+
+# Large trained models
+*.pt
+*.pth
+*.onnx
+
+# CAD/generated files
+*.f3z
+*.step
+*.stp
+*.iges
+*.igs
+*.stl
+
+# Generated output
+Stallion/output/
+Stallion/outputs/
+Stallion/generated/
+Stallion/generated_outputs/
+
+# Test/sample images
+Stallion/test_sofa.jpg
+Stallion/test_sofa_nobg.jpg
+
+# Environment / secrets
 .env
 .env.*
+
+# IDE
 .vscode/
 .idea/
-dist/
-build/
+
+# Logs/temp
 *.log
+*.tmp
+*.temp
+
+# OS
+.DS_Store
+Thumbs.db
+"@ | Out-File -Encoding utf8 .gitignore
