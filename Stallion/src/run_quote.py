@@ -273,6 +273,7 @@ def main():
         length_mm=length_mm,
         width_mm=width_mm,
         height_mm=height_mm,
+        sofa_type=sofa_type,
         output_prefix=request_id
     )
 

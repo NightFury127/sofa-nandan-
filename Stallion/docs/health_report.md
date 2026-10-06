@@ -96,6 +96,6 @@ tests/test_cad_generator_3d.py: 89 warnings
     warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-====================== 23 passed, 112 warnings in 4.68s =======================
+====================== 23 passed, 112 warnings in 12.77s ======================
 
 ```

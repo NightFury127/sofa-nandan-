@@ -12,6 +12,25 @@ except ImportError:
     COMPONENT_SCHEMA_EXTENDED = {}
 
 
+# The detector emits underscore labels ("1_seater", "l_shape", "4_seater_plus");
+# master_dimensions.csv and the extended schema use hyphenated keys.
+_SOFA_TYPE_ALIASES = {
+    "1-seater": "1-seater", "one-seater": "1-seater",
+    "2-seater": "2-seater", "two-seater": "2-seater",
+    "3-seater": "3-seater", "three-seater": "3-seater",
+    "4-seater": "4-seater", "4-seater-plus": "4-seater",
+    "l-shape": "l-shape", "l-shaped": "l-shape",
+}
+
+
+def normalize_sofa_type(sofa_type) -> str:
+    """Map any known sofa type label to its canonical hyphenated key."""
+    key = str(sofa_type).strip().lower().replace("_", "-").replace(" ", "-")
+    if key not in _SOFA_TYPE_ALIASES:
+        raise ValueError(f"Unknown sofa type '{sofa_type}'")
+    return _SOFA_TYPE_ALIASES[key]
+
+
 class SofaCostEngine:
     def __init__(self, base_dir=".."):
         """
@@ -142,12 +161,10 @@ class SofaCostEngine:
         """
         Retrieves L0, W0, H0 for the requested sofa type.
         """
-        sofa_type = str(sofa_type).lower().strip()
-        if sofa_type in self.TYPE_BASE_DIMS:
-            return self.TYPE_BASE_DIMS[sofa_type]
-        else:
-            print(f"Warning: Unknown sofa type '{sofa_type}', defaulting to 3-seater baselines.")
-            return self.TYPE_BASE_DIMS.get("3-seater", (2100, 900, 850))
+        sofa_type = normalize_sofa_type(sofa_type)
+        if sofa_type not in self.TYPE_BASE_DIMS:
+            raise ValueError(f"No base dimensions for sofa type '{sofa_type}' in master_dimensions.csv")
+        return self.TYPE_BASE_DIMS[sofa_type]
 
     # ---------------------------------------------------
     # 3. COMPUTE SCALE FACTORS
@@ -159,15 +176,16 @@ class SofaCostEngine:
             if value <= 0:
                 raise ValueError(f"'{name}' must be a positive number, got {value}")
                 
-        sofa_type = str(sofa_type).lower().strip()
-        if sofa_type in self.TYPE_LIMITS:
-            limits = self.TYPE_LIMITS[sofa_type]
-            if not (limits["min_l"] <= length_mm <= limits["max_l"]):
-                raise ValueError(f"Length {length_mm}mm out of bounds for {sofa_type}. Must be between {limits['min_l']} and {limits['max_l']}.")
-            if not (limits["min_w"] <= width_mm <= limits["max_w"]):
-                raise ValueError(f"Width {width_mm}mm out of bounds for {sofa_type}. Must be between {limits['min_w']} and {limits['max_w']}.")
-            if not (limits["min_h"] <= height_mm <= limits["max_h"]):
-                raise ValueError(f"Height {height_mm}mm out of bounds for {sofa_type}. Must be between {limits['min_h']} and {limits['max_h']}.")
+        sofa_type = normalize_sofa_type(sofa_type)
+        if sofa_type not in self.TYPE_LIMITS:
+            raise ValueError(f"No dimension limits for sofa type '{sofa_type}' in master_dimensions.csv")
+        limits = self.TYPE_LIMITS[sofa_type]
+        if not (limits["min_l"] <= length_mm <= limits["max_l"]):
+            raise ValueError(f"Length {length_mm}mm out of bounds for {sofa_type}. Must be between {limits['min_l']} and {limits['max_l']}.")
+        if not (limits["min_w"] <= width_mm <= limits["max_w"]):
+            raise ValueError(f"Width {width_mm}mm out of bounds for {sofa_type}. Must be between {limits['min_w']} and {limits['max_w']}.")
+        if not (limits["min_h"] <= height_mm <= limits["max_h"]):
+            raise ValueError(f"Height {height_mm}mm out of bounds for {sofa_type}. Must be between {limits['min_h']} and {limits['max_h']}.")
 
         L0, W0, H0 = self.get_base_dimensions(sofa_type)
 
@@ -281,7 +299,7 @@ class SofaCostEngine:
         scaled_rows = []
         springs_new = None
         
-        type_key = str(sofa_type).lower().strip()
+        type_key = normalize_sofa_type(sofa_type)
         col_map = {
             "1-seater": "1-Seater - Qty",
             "2-seater": "2-Seater - Qty",
@@ -289,7 +307,7 @@ class SofaCostEngine:
             "4-seater": "4-Seater - Qty",
             "l-shape": "L-Shape (Left) - Qty"
         }
-        qty_col = col_map.get(type_key, "3-Seater - Qty")
+        qty_col = col_map[type_key]
 
         # First pass: scale everything except clip-derived rows
         for _, row in self.master_bom.iterrows():
@@ -665,7 +683,7 @@ class SofaCostEngine:
                 }
 
         scales = self.compute_scale_factors(length_mm, width_mm, height_mm, sofa_type)
-        sofa_type_key = str(sofa_type).lower().strip()
+        sofa_type_key = normalize_sofa_type(sofa_type)
 
         # ── Scale each schema component ────────────────────────────────────────
         scaled_rows = []

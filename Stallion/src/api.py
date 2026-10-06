@@ -19,6 +19,7 @@ import sys
 import csv
 import json
 import shutil
+import secrets
 from pathlib import Path
 from datetime import datetime
 
@@ -40,7 +41,7 @@ sys.path.insert(0, str(SRC_DIR))
 
 from image_processor        import process_image, ImageValidationError
 from sofa_validator         import validate_sofa, SofaValidationError
-from cost_engine            import SofaCostEngine
+from cost_engine            import SofaCostEngine, normalize_sofa_type
 from cad_generator          import SofaCADGenerator
 from cad_generator_3d       import build_sofa_mesh, export_3d_model, render_preview_image
 from production_cad         import build_sofa_step_model
@@ -52,12 +53,17 @@ from dimension_estimator_api import add_dimension_estimates_to_response
 
 app = FastAPI(title="Stallion Sofa Costing Engine", version="1.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# The frontend is served from this same app, so no cross-origin access is
+# needed by default. For a separately hosted frontend, set e.g.
+#   STALLION_ALLOWED_ORIGINS=https://quotes.example.edu,http://localhost:5500
+_allowed_origins = [o.strip() for o in os.environ.get("STALLION_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if _allowed_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_allowed_origins,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
 
 # Serve output files (annotated images, CSVs, etc.)
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,6 +74,8 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 (OUTPUTS_DIR / "cad").mkdir(parents=True, exist_ok=True)
+
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -91,8 +99,12 @@ def _read_csv(path: Path) -> list:
 
 
 def _next_request_id() -> str:
-    """web_YYYYMMDD_HHMMSS — unique per second, human-readable."""
-    return f"web_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    """
+    web_YYYYMMDD_HHMMSS_<16 hex>. The random suffix keeps concurrent requests
+    apart and makes output URLs (which expose customer photos and quotes)
+    impractical to guess.
+    """
+    return f"web_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(8)}"
 
 
 # ---------------------------------------------------------------------------
@@ -105,13 +117,16 @@ def serve_index():
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+# Plain `def` (not async): FastAPI runs it in a worker thread, so the
+# CPU-heavy detection / CAD work doesn't block other requests.
 @app.post("/api/quote")
-async def create_quote(
+def create_quote(
     image:         UploadFile = File(...),
     customer_name: str   = Form("guest"),
     length_mm:     float = Form(...),
     width_mm:      float = Form(...),
     height_mm:     float = Form(...),
+    sofa_type:     str   = Form(None),
 ):
     """
     Run the Phase 1-3 pipeline on the uploaded image + dimensions.
@@ -123,6 +138,14 @@ async def create_quote(
       quote           cost breakdown dict
       annotated_image_url   URL to the bbox-annotated image
     """
+    content = image.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        return JSONResponse(
+            {"status": "error",
+             "reason": f"Image too large. Maximum size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB."},
+            status_code=413,
+        )
+
     request_id     = _next_request_id()
     request_folder = OUTPUTS_DIR / "requests" / request_id
     request_folder.mkdir(parents=True, exist_ok=True)
@@ -130,7 +153,6 @@ async def create_quote(
     # ── Save uploaded image ──────────────────────────────────────────────────
     suffix     = Path(image.filename or "upload.jpg").suffix.lower() or ".jpg"
     image_path = request_folder / f"uploaded_image{suffix}"
-    content    = await image.read()
     with open(image_path, "wb") as f:
         f.write(content)
 
@@ -191,15 +213,35 @@ async def create_quote(
     except Exception as exc:
         print(f"[DimEst] Estimation failed (non-fatal): {exc}")
 
-    # ── Phase 1: cost engine ─────────────────────────────────────────────────
-    engine      = SofaCostEngine()
-    quote_result = engine.generate_quote(
-        length_mm=length_mm,
-        width_mm=width_mm,
-        height_mm=height_mm,
-        sofa_type=sofa_result.get("predicted_type", "3-seater"),
-        output_prefix=request_id,
-    )
+    # ── Resolve sofa type: an explicit user pick wins, the detector is fallback ──
+    detected_type = sofa_result.get("predicted_type")
+    type_mismatch = None
+    try:
+        if sofa_type:
+            sofa_type_source = "user"
+            if detected_type and normalize_sofa_type(sofa_type) != normalize_sofa_type(detected_type):
+                type_mismatch = {"selected": sofa_type, "detected": detected_type}
+        else:
+            sofa_type, sofa_type_source = detected_type or "3_seater", "detector"
+
+        # ── Phase 1: cost engine ─────────────────────────────────────────────
+        engine       = SofaCostEngine()
+        quote_result = engine.generate_quote(
+            length_mm=length_mm,
+            width_mm=width_mm,
+            height_mm=height_mm,
+            sofa_type=sofa_type,
+            output_prefix=request_id,
+        )
+    except ValueError as exc:
+        # Out-of-range dimensions or unknown sofa type — a client input problem
+        return JSONResponse({
+            "status":         "error",
+            "reason":         str(exc),
+            "request_id":     request_id,
+            "sofa_analysis":  sofa_result,
+            "annotated_image_url": annotated_url,
+        }, status_code=400)
 
     output_files = quote_result.get("output_files", {})
 
@@ -244,8 +286,6 @@ async def create_quote(
     cad_glb_url     = None
     cad_3d_prev_url = None
     cad_error       = None
-
-    sofa_type = sofa_result.get("predicted_type", "3_seater")
 
     try:
         bom_for_cad = {r.get("component_group", ""): r.get("new_qty", 0)
@@ -320,7 +360,8 @@ async def create_quote(
         json.dump({
             "request_id":    request_id,
             "customer_name": customer_name,
-            "sofa_type":     sofa_result.get("predicted_type", "3-seater"),
+            "sofa_type":     sofa_type,
+            "sofa_type_source": sofa_type_source,
             "image_path":    str(image_path),
             "dimensions_mm": {"length": length_mm, "width": width_mm, "height": height_mm},
         }, f, indent=4)
@@ -332,6 +373,9 @@ async def create_quote(
         "dimensions_mm": {"length": length_mm, "width": width_mm, "height": height_mm},
         "image_metadata":       image_result["metadata"],
         "sofa_analysis":        sofa_result,
+        "sofa_type":            sofa_type,
+        "sofa_type_source":     sofa_type_source,
+        "type_mismatch":        type_mismatch,
         "estimated_dimensions": estimated_dimensions,
         "bom":               merged_bom,
         "quote":             summary,

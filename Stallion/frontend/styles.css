@@ -338,7 +338,7 @@ footer{background:var(--ink);color:var(--paper);display:grid;grid-template-colum
 
 
 /* ============================================================
-   STALLION / RESULTS — LARGE TECHNICAL INSPECTION
+   STALLION / RESULTS â€” LARGE TECHNICAL INSPECTION
    ============================================================ */
 
 .result-hero{
@@ -788,3 +788,6 @@ footer{background:var(--ink);color:var(--paper);display:grid;grid-template-colum
   }
 }
 
+
+.type-mismatch{font:9px var(--mono);line-height:1.7;letter-spacing:.08em;color:#8a4b00;background:#f6e7cf;border-left:3px solid #c77700;padding:10px 12px;margin-top:14px}
+.type-mismatch[hidden]{display:none}
