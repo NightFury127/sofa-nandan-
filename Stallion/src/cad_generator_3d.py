@@ -226,11 +226,34 @@ def _part_colour(name: str):
     return _FRAME
 
 
+def _srgb_to_linear(rgba):
+    """glTF baseColorFactor is linear; the palette above is sRGB (as displayed)."""
+    def lin(c):
+        c /= 255.0
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    return [lin(float(c)) for c in rgba[:3]] + [rgba[3] / 255.0]
+
+
+def _part_material(name: str) -> trimesh.visual.material.PBRMaterial:
+    """
+    Explicit non-metallic material. A glTF mesh without a material (e.g. plain
+    vertex colours) defaults to metallicFactor 1.0, which renders almost black
+    in viewers without environment lighting — so every part gets one.
+    """
+    wood = name.startswith("leg")
+    return trimesh.visual.material.PBRMaterial(
+        name=name,
+        baseColorFactor=_srgb_to_linear(_part_colour(name)),
+        metallicFactor=0.0,
+        roughnessFactor=0.6 if wood else 0.9,   # fabric is matte; wood a little glossier
+    )
+
+
 def _gltf_ready_copy(scene: trimesh.Scene) -> trimesh.Scene:
     """Coloured copy in glTF conventions: Y up, metres, front facing +Z."""
     out = scene.copy()
     for name, geom in out.geometry.items():
-        geom.visual = trimesh.visual.ColorVisuals(geom, face_colors=_part_colour(name))
+        geom.visual = trimesh.visual.TextureVisuals(material=_part_material(name))
     # z-up -> y-up: (x, y, z) -> (x, z, -y); mm -> m
     rot = trimesh.transformations.rotation_matrix(-math.pi / 2.0, [1, 0, 0])
     out.apply_transform(rot)

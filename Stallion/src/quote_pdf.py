@@ -98,6 +98,9 @@ def build_quote_pdf(request_folder: Path) -> bytes:
     date_txt = datetime.fromisoformat(created).strftime("%d %b %Y") if created else datetime.now().strftime("%d %b %Y")
 
     pdf = FPDF(format="A4")
+    # Paint the paper white. Without it the page is transparent, and viewers in
+    # dark mode show near-black text on a dark page.
+    pdf.set_page_background((255, 255, 255))
     pdf.set_auto_page_break(auto=True, margin=13)
     pdf.set_margins(16, 14, 16)
     pdf.add_page()

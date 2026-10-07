@@ -60,6 +60,25 @@ def test_export_3d_model_creates_files_on_disk(tmp_path):
     assert os.path.getsize(preview) > 0
 
 
+def test_glb_parts_have_non_metallic_materials(tmp_path):
+    # Without an explicit material glTF defaults to metallic=1, which renders
+    # the sofa almost black in the web viewer.
+    import json
+    import struct
+
+    scene = build_sofa_mesh(make_sample_scaled_bom(), make_sample_dimensions())
+    glb = open(export_3d_model(scene, str(tmp_path), "test_request")["glb_path"], "rb").read()
+    gltf = json.loads(glb[20:20 + struct.unpack("<I", glb[12:16])[0]])
+
+    for mesh in gltf["meshes"]:
+        for prim in mesh["primitives"]:
+            material = gltf["materials"][prim["material"]]
+            pbr = material["pbrMetallicRoughness"]
+            assert pbr["metallicFactor"] == 0.0
+            if not material["name"].startswith("leg"):           # legs are dark wood
+                assert max(pbr["baseColorFactor"][:3]) > 0.2     # upholstery not near-black
+
+
 def test_quote_pipeline_handles_step_generation_failure():
     client = TestClient(app)
     image = np.zeros((300, 300, 3), dtype=np.uint8)
