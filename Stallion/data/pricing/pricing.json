@@ -1,0 +1,35 @@
+{
+  "currency": "INR",
+  "note": "Placeholder rates. Replace with the factory's real figures in the staff rate editor.",
+  "updated_at": "2026-10-07T00:00:00",
+  "materials": {
+    "Wood Frame": {"unit": "cubic feet",    "rate": 850, "wastage_pct": 10},
+    "Plywood":    {"unit": "square meters", "rate": 620, "wastage_pct": 10},
+    "Seat Foam":  {"unit": "kg",            "rate": 210, "wastage_pct": 8,  "grade_group": "foam"},
+    "Back Foam":  {"unit": "kg",            "rate": 180, "wastage_pct": 8,  "grade_group": "foam"},
+    "Fabric":     {"unit": "square meters", "rate": 450, "wastage_pct": 12, "grade_group": "fabric"},
+    "Springs":    {"unit": "pieces",        "rate": 25,  "wastage_pct": 0},
+    "Adhesive":   {"unit": "kg",            "rate": 140, "wastage_pct": 0},
+    "Thread":     {"unit": "cones",         "rate": 60,  "wastage_pct": 0},
+    "Legs":       {"unit": "pieces",        "rate": 90,  "wastage_pct": 0},
+    "Hardware":   {"unit": "pieces",        "rate": 15,  "wastage_pct": 0}
+  },
+  "grades": {
+    "fabric": {
+      "standard": {"label": "Standard fabric", "multiplier": 1.0},
+      "premium":  {"label": "Premium fabric",  "multiplier": 1.7}
+    },
+    "foam": {
+      "standard":     {"label": "Standard foam",     "multiplier": 1.0},
+      "high_density": {"label": "High-density foam", "multiplier": 1.35}
+    }
+  },
+  "labour_by_type": {
+    "1_seater": 2200, "2_seater": 2900, "3_seater": 3500, "4_seater_plus": 4200, "l_shape": 4800
+  },
+  "finishing_by_type": {
+    "1_seater": 800, "2_seater": 1000, "3_seater": 1200, "4_seater_plus": 1400, "l_shape": 1600
+  },
+  "overhead_pct": 12,
+  "profit_pct": 15
+}

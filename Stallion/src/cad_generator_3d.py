@@ -92,10 +92,20 @@ def _lookup_qty(scaled_bom, *names):
     return 0.0
 
 
-def build_sofa_mesh(scaled_bom: dict, dimensions: dict) -> trimesh.Scene:
+SEATS_BY_TYPE = {"1_seater": 1, "2_seater": 2, "3_seater": 3, "4_seater_plus": 4, "l_shape": 3}
+
+
+def _clamp(value, lo, hi):
+    return max(lo, min(hi, value))
+
+
+def build_sofa_mesh(scaled_bom: dict, dimensions: dict, sofa_type: str = "3_seater") -> trimesh.Scene:
     """
-    Build a primitive-based 3D sofa mesh from the same scaled BOM and
-    dimensional inputs already used in the cost engine.
+    Build a primitive-based 3D sofa from the same scaled BOM and dimensions
+    used in the cost engine. The overall footprint is exactly length x width
+    x height (mm; z up, front of the sofa towards -y). Parts appear only when
+    the BOM contains them; seat/back cushions are split per seat, and an
+    L-shape gets a chaise extending forward on the right.
     """
     if not isinstance(dimensions, dict):
         raise ValueError("dimensions must be a dictionary with length_mm/width_mm/height_mm")
@@ -119,92 +129,130 @@ def build_sofa_mesh(scaled_bom: dict, dimensions: dict) -> trimesh.Scene:
     wood_qty      = _lookup_qty(scaled_bom, "wood frame", "wood_frame",
                                 "seat_rail_front", "seat_rail_back")
     plywood_qty   = _lookup_qty(scaled_bom, "plywood", "seat_deck_board")
-    fabric_qty    = _lookup_qty(scaled_bom, "fabric", "fabric_seat")
     arm_qty       = _lookup_qty(scaled_bom, "handle frame", "handle_frame",
                                 "armrest", "arm rest")
 
-    def add_box(name, extents, center):
-        mesh = trimesh.creation.box(extents=extents)
-        mesh.apply_translation(center)
+    def add_span(name, x0, x1, y0, y1, z0, z1):
+        """Add an axis-aligned box spanning [x0,x1] x [y0,y1] x [z0,z1]."""
+        mesh = trimesh.creation.box(extents=[x1 - x0, y1 - y0, z1 - z0])
+        mesh.apply_translation([(x0 + x1) / 2.0, (y0 + y1) / 2.0, (z0 + z1) / 2.0])
         scene.add_geometry(mesh, geom_name=name)
         return mesh
 
-    seat_w = max(length * 0.82, 600.0)
-    seat_d = max(width * 0.78, 500.0)
-    seat_h = max(height * 0.32, 140.0)
+    L, W, H = length, width, height
+    has_arms = wood_qty > 0 or arm_qty > 0
+    n_seats  = SEATS_BY_TYPE.get(str(sofa_type).lower().replace("-", "_"), 3)
 
-    back_w = max(length * 0.82, 600.0)
-    back_d = max(width * 0.22, 120.0)
-    back_h = max(height * 0.42, 180.0)
+    leg_h    = _clamp(H * 0.11, 60.0, 140.0)
+    base_h   = _clamp(H * 0.20, 110.0, 220.0)            # frame/base above the legs
+    cush_h   = _clamp(H * 0.13, 80.0, 160.0)             # seat cushion thickness
+    arm_w    = _clamp(L * 0.09, 90.0, 220.0) if has_arms else 0.0
+    back_d   = _clamp(W * 0.20, 110.0, 260.0)            # back frame depth
+    bcush_d  = _clamp(W * 0.15, 90.0, 190.0)             # back cushion depth
+    gap      = 12.0                                      # between cushions
+    seat_z0  = leg_h + base_h
+    seat_top = seat_z0 + cush_h
+    arm_top  = _clamp(H * 0.72, seat_top + 120.0, H - 40.0)
+    x_in0, x_in1 = -L / 2.0 + arm_w, L / 2.0 - arm_w      # between the arms
+    front, back = -W / 2.0, W / 2.0
 
-    arm_w = max(length * 0.08, 90.0)
-    arm_d = max(width * 0.18, 100.0)
-    arm_h = max(height * 0.70, 220.0)
+    # Structure
+    add_span("seat_base", x_in0, x_in1, front, back, leg_h, seat_z0)
+    add_span("backrest", -L / 2.0, L / 2.0, back - back_d, back, leg_h, H)
+    if has_arms:
+        add_span("left_armrest", -L / 2.0, x_in0, front, back, leg_h, arm_top)
+        add_span("right_armrest", x_in1, L / 2.0, front, back, leg_h, arm_top)
+    if plywood_qty > 0:   # seat deck, inside the base
+        add_span("plywood_core", x_in0 + 30, x_in1 - 30, front + 30, back - back_d - 10,
+                 seat_z0 - 45, seat_z0 - 15)
 
-    leg_h = max(height * 0.12, 80.0)
-    leg_w = max(min(length, width) * 0.04, 35.0)
-    leg_d = leg_w
+    # Cushions, one per seat
+    seat_w = (x_in1 - x_in0 - gap * (n_seats - 1)) / n_seats
+    for i in range(n_seats):
+        x0 = x_in0 + i * (seat_w + gap)
+        suffix = "" if n_seats == 1 else f"_{i + 1}"
+        if seat_foam_qty > 0:
+            add_span(f"seat_foam{suffix}", x0, x0 + seat_w, front + 15, back - back_d - bcush_d * 0.35,
+                     seat_z0, seat_top)
+        if back_foam_qty > 0:
+            add_span(f"back_foam{suffix}", x0, x0 + seat_w, back - back_d - bcush_d, back - back_d,
+                     seat_top, H - 50)
 
-    seat_center = np.array([0.0, 0.0, leg_h + (seat_h / 2.0)])
-    add_box("seat_base", [seat_w, seat_d, seat_h], seat_center)
+    # L-shape: a chaise extending forward on the right-hand side
+    chaise = None
+    if str(sofa_type).lower().replace("-", "_") == "l_shape":
+        chaise_w = _clamp(L * 0.36, 650.0, 1000.0)
+        reach = _clamp(W * 0.80, 600.0, 900.0)
+        cx0, cx1 = x_in1 - chaise_w, x_in1
+        add_span("chaise_base", cx0, cx1, front - reach, front, leg_h, seat_z0)
+        if seat_foam_qty > 0:
+            add_span("chaise_foam", cx0, cx1, front - reach + 15, front - gap, seat_z0, seat_top)
+        if has_arms:
+            add_span("chaise_armrest", x_in1, L / 2.0, front - reach, front, leg_h, arm_top)
+        chaise = (cx0, cx1, front - reach)
 
-    back_center = np.array([0.0, (seat_d / 2.0) - (back_d / 2.0), leg_h + seat_h + (back_h / 2.0)])
-    add_box("backrest", [back_w, back_d, back_h], back_center)
-
-    if wood_qty > 0 or arm_qty > 0:
-        arm_offset_y = seat_d / 2.0 + arm_d / 2.0 + 10.0
-        arm_base_z = leg_h + seat_h + (arm_h / 2.0)
-        add_box("left_armrest", [arm_w, arm_d, arm_h], np.array([-seat_w / 2.0 + arm_w / 2.0, -arm_offset_y, arm_base_z]))
-        add_box("right_armrest", [arm_w, arm_d, arm_h], np.array([seat_w / 2.0 - arm_w / 2.0, -arm_offset_y, arm_base_z]))
-
-    if seat_foam_qty > 0:
-        foam_offset = 12.0
-        add_box("seat_foam", [seat_w - 80.0, seat_d - 70.0, max(seat_h * 0.65, 90.0)], np.array([0.0, 0.0, seat_h * 0.66 + foam_offset]))
-
-    if back_foam_qty > 0:
-        add_box("back_foam", [back_w - 80.0, max(back_d * 0.8, 70.0), back_h * 0.8], np.array([0.0, (seat_d / 2.0) - (back_d / 2.0), seat_h + back_h * 0.42]))
-
-    if plywood_qty > 0:
-        add_box("plywood_core", [seat_w - 120.0, seat_d - 110.0, max(seat_h * 0.25, 60.0)], np.array([0.0, 0.0, seat_h * 0.38]))
-
-    if fabric_qty > 0:
-        add_box("fabric_cover", [seat_w + 12.0, seat_d + 12.0, seat_h + 10.0], np.array([0.0, 0.0, seat_h / 2.0]))
-
-    # Explicitly create legs as standalone geometry at the seat underside corners.
-    # This keeps the "legs" BOM component visible in the 3D scene instead of
-    # depending on armrest geometry or floor contact to imply its presence.
-    leg_positions = []
-    corner_offsets = [
-        (-seat_w / 2.0 + leg_w, -seat_d / 2.0 + leg_d),
-        (seat_w / 2.0 - leg_w, -seat_d / 2.0 + leg_d),
-        (-seat_w / 2.0 + leg_w, seat_d / 2.0 - leg_d),
-        (seat_w / 2.0 - leg_w, seat_d / 2.0 - leg_d),
-    ]
-    for idx in range(max(4, leg_qty)):
-        if idx < len(corner_offsets):
-            x, y = corner_offsets[idx]
-        else:
-            # Add any extra leg positions in a simple evenly distributed pattern.
-            x = ((idx % 2) * seat_w / 2.0) - (seat_w / 4.0)
-            y = (((idx // 2) % 2) * seat_d / 2.0) - (seat_d / 4.0)
-        leg_positions.append(np.array([x, y, leg_h / 2.0]))
-
-    for idx, leg_pos in enumerate(leg_positions[:max(4, leg_qty)]):
-        add_box(f"leg_{idx + 1}", [leg_w, leg_d, leg_h], leg_pos)
+    # Legs at the corners of the footprint, extras spread along front and back
+    leg_w = _clamp(min(L, W) * 0.045, 35.0, 60.0)
+    inset = 40.0 + leg_w / 2.0
+    positions = [(-L / 2 + inset, front + inset), (L / 2 - inset, front + inset),
+                 (-L / 2 + inset, back - inset), (L / 2 - inset, back - inset)]
+    for k in range(max(4, leg_qty) - 4):
+        x = -L / 2 + L * (k // 2 + 1) / (max(4, leg_qty) // 2)
+        positions.append((min(x, L / 2 - inset), front + inset if k % 2 == 0 else back - inset))
+    if chaise:
+        cx0, cx1, cfront = chaise
+        positions += [(cx0 + inset, cfront + inset), (L / 2 - inset, cfront + inset)]
+    for idx, (x, y) in enumerate(positions):
+        add_span(f"leg_{idx + 1}", x - leg_w / 2, x + leg_w / 2, y - leg_w / 2, y + leg_w / 2, 0.0, leg_h)
 
     return scene
 
 
+# Colours for the exported model (RGBA). Upholstered parts share the fabric
+# colour; the base/arms/back frame are a shade darker so cushions read clearly.
+_FABRIC  = [176, 168, 152, 255]
+_FRAME   = [146, 139, 126, 255]
+_WOOD    = [74, 52, 36, 255]
+_DECK    = [196, 170, 128, 255]
+
+
+def _part_colour(name: str):
+    if name.startswith("leg"):
+        return _WOOD
+    if name.startswith("plywood"):
+        return _DECK
+    if "foam" in name:
+        return _FABRIC
+    return _FRAME
+
+
+def _gltf_ready_copy(scene: trimesh.Scene) -> trimesh.Scene:
+    """Coloured copy in glTF conventions: Y up, metres, front facing +Z."""
+    out = scene.copy()
+    for name, geom in out.geometry.items():
+        geom.visual = trimesh.visual.ColorVisuals(geom, face_colors=_part_colour(name))
+    # z-up -> y-up: (x, y, z) -> (x, z, -y); mm -> m
+    rot = trimesh.transformations.rotation_matrix(-math.pi / 2.0, [1, 0, 0])
+    out.apply_transform(rot)
+    out.apply_scale(0.001)
+    return out
+
+
 def export_3d_model(scene: trimesh.Scene, output_dir: str, request_id: str) -> dict:
-    """Export the scene to GLB and OBJ at the same output folder used by the 2D CAD files."""
+    """
+    Export the scene to GLB and OBJ next to the 2D CAD files, coloured and in
+    glTF conventions (Y up, metres) so viewers and 3D apps show it upright and
+    at the right size.
+    """
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     glb_path = out_dir / f"{request_id}.glb"
     obj_path = out_dir / f"{request_id}.obj"
 
-    scene.export(file_obj=str(glb_path), file_type="glb")
-    scene.export(file_obj=str(obj_path), file_type="obj")
+    export_scene = _gltf_ready_copy(scene)
+    export_scene.export(file_obj=str(glb_path), file_type="glb")
+    export_scene.export(file_obj=str(obj_path), file_type="obj")
 
     return {
         "glb_path": str(glb_path),

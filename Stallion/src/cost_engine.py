@@ -3,6 +3,11 @@ import math
 import json
 import pandas as pd
 
+from pricing import load_pricing, ui_type_key, PricingError
+
+# Units bought whole: quantities are rounded up after scaling and wastage
+DISCRETE_UNITS = {"pieces", "piece", "pcs", "nos", "cones", "cone", "sets", "set"}
+
 # Schema import (optional — only used by generate_quote_from_schema)
 try:
     from component_schema_extended import COMPONENT_SCHEMA_EXTENDED  # type: ignore
@@ -43,7 +48,7 @@ class SofaCostEngine:
             │   │   ├── master_dimensions.csv
             │   │   └── master_template_spec.csv
             │   ├── pricing/
-            │   │   └── cost_sheet.csv
+            │   │   └── pricing.json      (rate sheet, see pricing.py)
             │   └── fusion_mapping/
             │       └── fusion_component_map.csv
             ├── outputs/
@@ -60,9 +65,6 @@ class SofaCostEngine:
         )
         self.master_bom_path = os.path.join(
             self.base_dir, "data", "master_template", "master_template_spec.csv"
-        )
-        self.cost_sheet_path = os.path.join(
-            self.base_dir, "data", "pricing", "cost_sheet.csv"
         )
         self.fusion_map_path = os.path.join(
             self.base_dir, "data", "fusion_mapping", "fusion_component_map.csv"
@@ -86,15 +88,16 @@ class SofaCostEngine:
         # -----------------------------
         self.master_dimensions = None
         self.master_bom = None
-        self.cost_sheet = None
+        self.cost_sheet = None   # legacy; only read by generate_quote_from_schema
+        self.pricing = None
         self.fusion_map = None
-        
+
         # Scaling rules mapping (since new Excel removed this column)
         self.DEFAULT_SCALING_RULES = {
             "wood frame": "3d volume",
-            "plywood": "area",
-            "seat foam": "area/volume",
-            "back foam": "area/volume",
+            "plywood": "surface area",      # seat deck (W x D) + back/arm panels (x H)
+            "seat foam": "seat area",       # width x depth
+            "back foam": "back area",       # width x height
             "handle foam": "area/volume",
             "fabric": "surface area",
             "springs": "count by length",
@@ -118,25 +121,12 @@ class SofaCostEngine:
     def load_data(self):
         self.master_dimensions = pd.read_csv(self.master_dim_path)
         self.master_bom = pd.read_csv(self.master_bom_path)
-        self.cost_sheet = pd.read_csv(self.cost_sheet_path)
+        self.pricing = load_pricing()
 
         if os.path.exists(self.fusion_map_path):
             self.fusion_map = pd.read_csv(self.fusion_map_path)
         else:
             self.fusion_map = None
-
-        print("Loaded:")
-        files = {
-            "master_dimensions": self.master_dim_path,
-            "master_template_spec": self.master_bom_path,
-            "cost_sheet": self.cost_sheet_path
-        }
-        if self.fusion_map is not None:
-            files["fusion_component_map"] = self.fusion_map_path
-            
-        print("Loaded:")
-        for name, path in files.items():
-            print(f"  {name} -> {path}")
             
         # Parse master_dimensions into our runtime dictionaries
         for _, row in self.master_dimensions.iterrows():
@@ -225,8 +215,9 @@ class SofaCostEngine:
         """
         Supported scaling rules:
             3D Volume
-            Area
-            Area/Volume
+            Area            (width x height; kept for the Fusion map)
+            Seat Area       (width x depth; "Area/Volume" is an alias)
+            Back Area       (width x height)
             Surface Area
             Count by Length
             Count by Height
@@ -251,10 +242,13 @@ class SofaCostEngine:
             # using length-height scaling as a simple structural panel approximation
             return base_qty * SL * SH
 
-        # Foam / handle frame / similar components
-        elif rule == "area/volume":
-            # general approximation for seat/back/arm components
+        # Seat-plane parts (seat foam): scale with width x depth
+        elif rule in ("seat area", "area/volume"):
             return base_qty * SL * SW
+
+        # Back-plane parts (back foam): scale with width x height
+        elif rule == "back area":
+            return base_qty * SL * SH
 
         # Upholstery / fabric
         elif rule == "surface area":
@@ -334,6 +328,8 @@ class SofaCostEngine:
                 scaling_rule=scaling_rule,
                 scales=scales
             )
+            if unit.lower() in DISCRETE_UNITS:
+                new_qty = math.ceil(round(new_qty, 6))   # whole cones / pieces
 
             if component.lower() == "springs":
                 springs_new = new_qty
@@ -492,62 +488,59 @@ class SofaCostEngine:
     # ---------------------------------------------------
     # 8. COMPUTE COST
     # ---------------------------------------------------
-    def compute_cost(self, bom_df):
+    def compute_cost(self, bom_df, sofa_type="3-seater", fabric_grade="standard", foam_grade="standard"):
         """
-        cost_sheet.csv new columns:
-            Component Name, Unit of Measurement, Cost per Unit (INR), Rate Type (Flat/Hourly/%), Value (INR or %)
+        Price a scaled BOM with the rate sheet (data/pricing/pricing.json):
+          order qty = net qty x (1 + wastage %), rounded up for whole-unit items
+          rate      = material rate x grade multiplier (fabric / foam groups)
+          labour and finishing are fixed amounts per sofa type
+          overhead % on the subtotal, then profit % on cost + overhead
+        Prices are exclusive of GST.
         """
-        cost_map = {}
-        
-        labor_cost = 0.0
-        finishing_cost = 0.0
-        overhead_pct = 12.0
-        profit_pct = 15.0
-
-        for _, row in self.cost_sheet.iterrows():
-            if pd.isna(row["Component Name"]):
-                continue
-            name = str(row["Component Name"]).strip().lower()
-            
-            if name == "materials":
-                continue
-                
-            if name == "labour":
-                labor_cost = float(row["Value (INR or %)"])
-            elif name == "finishing":
-                finishing_cost = float(row["Value (INR or %)"])
-            elif name == "overhead":
-                overhead_pct = float(row["Value (INR or %)"]) * 100
-            elif name == "profit margin":
-                profit_pct = float(row["Value (INR or %)"]) * 100
-            else:
-                cost_map[name] = float(row["Cost per Unit (INR)"])
+        if self.pricing is None:
+            self.pricing = load_pricing()
+        pricing = self.pricing
+        chosen = {"fabric": fabric_grade or "standard", "foam": foam_grade or "standard"}
+        for group, grade in chosen.items():
+            if grade not in pricing["grades"][group]:
+                options = ", ".join(pricing["grades"][group])
+                raise ValueError(f"Unknown {group} grade '{grade}'. Choose one of: {options}.")
+        materials = {name.lower(): (name, m) for name, m in pricing["materials"].items()}
 
         cost_rows = []
-
         for _, row in bom_df.iterrows():
             component = str(row["component_group"]).strip()
-            qty = float(row["new_qty"])
-
-            pricing_key = component.lower()
-            if pricing_key not in cost_map:
-                raise ValueError(
-                    f"Cost not found for component '{component}' in cost_sheet.csv"
-                )
-
-            unit_cost = cost_map[pricing_key]
-            total_cost = qty * unit_cost
+            if component.lower() not in materials:
+                raise ValueError(f"No rate for component '{component}' in the rate sheet (pricing.json)")
+            _, mat = materials[component.lower()]
+            net_qty = float(row["new_qty"])
+            wastage = mat["wastage_pct"]
+            order_qty = net_qty * (1 + wastage / 100.0)
+            if str(mat["unit"]).lower() in DISCRETE_UNITS:
+                order_qty = math.ceil(round(order_qty, 6))
+            group = mat.get("grade_group")
+            multiplier = pricing["grades"][group][chosen[group]]["multiplier"] if group else 1.0
+            unit_cost = mat["rate"] * multiplier
 
             cost_rows.append({
                 "component_group": component,
-                "new_qty": qty,
+                "net_qty": net_qty,
+                "wastage_pct": wastage,
+                "new_qty": order_qty,
+                "unit": mat["unit"],
+                "grade": chosen[group] if group else "",
                 "unit_cost": unit_cost,
-                "total_cost": total_cost
+                "total_cost": order_qty * unit_cost,
             })
 
         cost_df = pd.DataFrame(cost_rows)
+        material_cost = float(cost_df["total_cost"].sum()) if not cost_df.empty else 0.0
 
-        material_cost = cost_df["total_cost"].sum() if not cost_df.empty else 0.0
+        type_key = ui_type_key(normalize_sofa_type(sofa_type))
+        labor_cost = float(pricing["labour_by_type"][type_key])
+        finishing_cost = float(pricing["finishing_by_type"][type_key])
+        overhead_pct = float(pricing["overhead_pct"])
+        profit_pct = float(pricing["profit_pct"])
 
         subtotal = material_cost + labor_cost + finishing_cost
         overhead = subtotal * (overhead_pct / 100.0)
@@ -561,9 +554,16 @@ class SofaCostEngine:
             "finishing_cost": finishing_cost,
             "subtotal": subtotal,
             "overhead": overhead,
+            "overhead_pct": overhead_pct,
             "cost_after_overhead": cost_after_overhead,
             "profit": profit,
-            "final_quotation_price": final_price
+            "profit_pct": profit_pct,
+            "final_quotation_price": final_price,
+            "fabric_grade": chosen["fabric"],
+            "foam_grade": chosen["foam"],
+            "fabric_grade_label": pricing["grades"]["fabric"][chosen["fabric"]]["label"],
+            "foam_grade_label": pricing["grades"]["foam"][chosen["foam"]]["label"],
+            "gst": "exclusive",
         }
 
         return cost_df, summary
@@ -595,12 +595,22 @@ class SofaCostEngine:
     # ---------------------------------------------------
     # 10. FULL PIPELINE
     # ---------------------------------------------------
-    def generate_quote(self, length_mm, width_mm, height_mm, sofa_type="3-seater", output_prefix="quotation_output"):
+    def estimate_price(self, length_mm, width_mm, height_mm, sofa_type="3-seater",
+                       fabric_grade="standard", foam_grade="standard"):
+        """Price only (no files written) — used for the price-vs-size comparison."""
+        if self.master_bom is None:
+            self.load_data()
+        _, bom_df = self.generate_scaled_bom(length_mm, width_mm, height_mm, sofa_type)
+        _, summary = self.compute_cost(bom_df, sofa_type, fabric_grade, foam_grade)
+        return summary["final_quotation_price"]
+
+    def generate_quote(self, length_mm, width_mm, height_mm, sofa_type="3-seater", output_prefix="quotation_output",
+                       fabric_grade="standard", foam_grade="standard"):
         self.load_data()
 
         scales, bom_df = self.generate_scaled_bom(length_mm, width_mm, height_mm, sofa_type)
         fusion_df = None # self.generate_fusion_scaled_components(scales) -> Disabled temporarily as map needs update
-        cost_df, summary = self.compute_cost(bom_df)
+        cost_df, summary = self.compute_cost(bom_df, sofa_type, fabric_grade, foam_grade)
 
         bom_path, quote_csv_path, quote_json_path, fusion_csv_path = self.save_outputs(
             bom_df=bom_df,

@@ -12,4 +12,9 @@ httpx==0.28.1
 build123d==0.11.1
 Pillow==12.3.0
 python-multipart==0.0.32
-numpy==2.5.1
+fpdf2==2.8.3
+# numpy 2.4+ removed np.trapz, which ultralytics 8.3.47 calls during
+# segmentation validation (model.val / training). Keep <2.4 until ultralytics is upgraded.
+numpy==2.3.5
+# Only for src/collect_web_photos.py (collecting training photos)
+ddgs==9.16.0

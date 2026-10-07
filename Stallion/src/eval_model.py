@@ -4,9 +4,13 @@ eval_model.py — Evaluate the trained Stallion sofa segmentation model.
 Runs inference on the validation set, computes per-class metrics,
 saves a confusion matrix image, and writes a CSV + JSON report.
 
+Class names are read from the model, so any detector/dataset pair with
+matching class indices works. Default dataset: data/datasets/detector/data.yaml
+(the current detector's own training set is not in this repo; pass --data).
+
 Run:
-    python eval_model.py
-    python eval_model.py --weights models/sofa_detector.pt --conf 0.25
+    python eval_model.py --data path/to/data.yaml
+    python eval_model.py --data path/to/data.yaml --weights ../data/models/weights/sofa_detector_candidate.pt
 """
 
 import argparse
@@ -20,22 +24,17 @@ import numpy as np
 
 SRC_DIR      = Path(__file__).parent.resolve()
 PROJECT_ROOT = SRC_DIR.parent.resolve()
-MODELS_DIR   = PROJECT_ROOT / "models"
+MODELS_DIR   = PROJECT_ROOT / "data" / "models" / "weights"
 EVAL_DIR     = PROJECT_ROOT / "outputs" / "eval"
-DATA_YAML    = PROJECT_ROOT / "data" / "3seater_data" / "data.yaml"
+DATA_YAML    = PROJECT_ROOT / "data" / "datasets" / "detector" / "data.yaml"
 
 EVAL_DIR.mkdir(parents=True, exist_ok=True)
-
-CLASS_NAMES = [
-    "back_cushion", "base", "left_arm", "legs",
-    "right_arm", "seat_cushion", "stallion-sofa"
-]
 
 # Minimum acceptable mAP@50 before a warning is shown
 MAP50_THRESHOLD = 0.70
 
 
-def evaluate(weights_path: Path, conf: float, iou: float):
+def evaluate(weights_path: Path, data_yaml: Path, conf: float, iou: float):
     from ultralytics import YOLO
 
     if not weights_path.exists():
@@ -43,8 +42,8 @@ def evaluate(weights_path: Path, conf: float, iou: float):
         print("  → Run train_model.py first.")
         sys.exit(1)
 
-    if not DATA_YAML.exists():
-        print(f"[ERROR] data.yaml not found: {DATA_YAML}")
+    if not data_yaml.exists():
+        print(f"[ERROR] data.yaml not found: {data_yaml}  (pass --data)")
         sys.exit(1)
 
     print(f"\n{'='*60}")
@@ -57,11 +56,10 @@ def evaluate(weights_path: Path, conf: float, iou: float):
 
     # Run val on the validation split
     metrics = model.val(
-        data    = str(DATA_YAML),
+        data    = str(data_yaml),
         conf    = conf,
         iou     = iou,
         plots   = True,
-        save_json = True,
         project = str(EVAL_DIR),
         name    = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
         verbose = True,
@@ -79,7 +77,7 @@ def evaluate(weights_path: Path, conf: float, iou: float):
         rec      = metrics.box.r                 # recall per class
 
         for i, cls_idx in enumerate(ap_class):
-            cls_name = CLASS_NAMES[cls_idx] if cls_idx < len(CLASS_NAMES) else str(cls_idx)
+            cls_name = model.names.get(int(cls_idx), str(cls_idx))
             per_class_rows.append({
                 "class":     cls_name,
                 "precision": round(float(prec[i]), 4),
@@ -157,12 +155,14 @@ def evaluate(weights_path: Path, conf: float, iou: float):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate Stallion sofa model")
     parser.add_argument("--weights", type=str,   default=str(MODELS_DIR / "sofa_detector.pt"))
+    parser.add_argument("--data",    type=Path,  default=DATA_YAML)
     parser.add_argument("--conf",    type=float, default=0.25)
     parser.add_argument("--iou",     type=float, default=0.50)
     args = parser.parse_args()
 
     evaluate(
         weights_path = Path(args.weights),
+        data_yaml    = args.data,
         conf         = args.conf,
         iou          = args.iou,
     )

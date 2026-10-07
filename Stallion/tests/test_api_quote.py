@@ -21,11 +21,14 @@ def client(monkeypatch):
     return TestClient(api.app)
 
 
-def _post(client, length, width, height):
+def _post(client, length, width, height, sofa_type="1_seater", image=b"not-a-real-image"):
+    data = {"length_mm": length, "width_mm": width, "height_mm": height}
+    if sofa_type is not None:
+        data["sofa_type"] = sofa_type
     return client.post(
         "/api/quote",
-        files={"image": ("sofa.jpg", b"not-a-real-image", "image/jpeg")},
-        data={"length_mm": length, "width_mm": width, "height_mm": height},
+        files={"image": ("sofa.jpg", image, "image/jpeg")},
+        data=data,
     )
 
 
@@ -40,11 +43,7 @@ def test_out_of_range_dimensions_return_400(client):
 
 def test_oversized_upload_returns_413(client, monkeypatch):
     monkeypatch.setattr(api, "MAX_UPLOAD_BYTES", 10)
-    resp = client.post(
-        "/api/quote",
-        files={"image": ("sofa.jpg", b"x" * 11, "image/jpeg")},
-        data={"length_mm": 850, "width_mm": 850, "height_mm": 850},
-    )
+    resp = _post(client, 850, 850, 850, image=b"x" * 11)
 
     assert resp.status_code == 413
     assert resp.json()["status"] == "error"
@@ -55,45 +54,95 @@ def test_request_ids_are_unique_within_the_same_second():
     assert len(ids) == 100
 
 
-def test_detector_type_used_when_user_picks_none(client):
-    resp = _post(client, 850, 850, 850)
+def test_sofa_type_is_required(client):
+    resp = _post(client, 850, 850, 850, sofa_type=None)
 
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["sofa_type"] == "1_seater"
-    assert body["sofa_type_source"] == "detector"
-    assert body["type_mismatch"] is None
+    assert resp.status_code == 422
 
 
-def test_user_pick_overrides_detector_and_flags_mismatch(client):
-    resp = client.post(
-        "/api/quote",
-        files={"image": ("sofa.jpg", b"not-a-real-image", "image/jpeg")},
-        data={"length_mm": 2100, "width_mm": 900, "height_mm": 850, "sofa_type": "3_seater"},
-    )
+def test_user_type_is_priced_and_detector_mismatch_flagged(client):
+    resp = _post(client, 2100, 900, 850, sofa_type="3_seater")
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["sofa_type"] == "3_seater"
-    assert body["sofa_type_source"] == "user"
-    assert body["type_mismatch"] == {"selected": "3_seater", "detected": "1_seater"}
+    assert body["type_mismatch"] == {"selected": "3_seater", "detected": "1_seater",
+                                     "detected_confidence": None}
 
 
-def test_user_pick_matching_detector_is_not_flagged(client):
-    resp = client.post(
-        "/api/quote",
-        files={"image": ("sofa.jpg", b"not-a-real-image", "image/jpeg")},
-        data={"length_mm": 850, "width_mm": 850, "height_mm": 850, "sofa_type": "1-seater"},
-    )
+def test_user_type_matching_detector_is_not_flagged(client):
+    resp = _post(client, 850, 850, 850, sofa_type="1-seater")
 
+    assert resp.status_code == 200
     assert resp.json()["type_mismatch"] is None
 
 
 def test_unknown_user_sofa_type_returns_400(client):
+    resp = _post(client, 850, 850, 850, sofa_type="recliner")
+
+    assert resp.status_code == 400
+
+
+def test_low_confidence_detection_is_not_flagged(client, monkeypatch):
+    monkeypatch.setattr(api, "validate_sofa", lambda *a, **k: {
+        "predicted_type": "1_seater",
+        "type_confidence": api.TYPE_CONFIDENCE_THRESHOLD - 0.1,
+    })
+    resp = _post(client, 2100, 900, 850, sofa_type="3_seater")
+
+    assert resp.status_code == 200
+    assert resp.json()["type_mismatch"] is None
+
+
+def test_config_lists_type_limits(client):
+    types = client.get("/api/config").json()["types"]
+
+    assert types["3_seater"]["width"] == [1800.0, 2400.0]
+    assert set(types) == {"1_seater", "2_seater", "3_seater", "4_seater_plus", "l_shape"}
+
+
+def test_frontend_is_served_with_no_cache(client):
+    # Browsers must revalidate so a frontend update shows without a hard refresh
+    for path in ("/", "/static/js/main.js", "/static/styles.css"):
+        resp = client.get(path)
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-cache"
+
+
+def test_progress_reaches_done(client):
     resp = client.post(
         "/api/quote",
         files={"image": ("sofa.jpg", b"not-a-real-image", "image/jpeg")},
-        data={"length_mm": 850, "width_mm": 850, "height_mm": 850, "sofa_type": "recliner"},
+        data={"length_mm": 850, "width_mm": 850, "height_mm": 850,
+              "sofa_type": "1_seater", "progress_id": "test-progress-1234"},
     )
+    assert resp.status_code == 200
+    assert client.get("/api/progress/test-progress-1234").json()["step"] == "done"
 
-    assert resp.status_code == 400
+
+def test_saved_quote_can_be_reopened_and_exported_as_pdf(client):
+    request_id = _post(client, 850, 850, 850).json()["request_id"]
+
+    reopened = client.get(f"/api/quotes/{request_id}")
+    assert reopened.status_code == 200
+    assert reopened.json()["request_id"] == request_id
+
+    pdf = client.get(f"/api/quotes/{request_id}/pdf")
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF")
+
+
+def test_unknown_or_malformed_quote_id_is_404(client):
+    assert client.get("/api/quotes/web_20260101_000000_0000000000000000").status_code == 404
+    assert client.get("/api/quotes/..%2F..%2Fsecret").status_code == 404
+
+
+def test_quote_history_needs_staff_key(client, monkeypatch):
+    monkeypatch.setenv("STALLION_STAFF_KEY", "s3cret")
+    request_id = _post(client, 850, 850, 850).json()["request_id"]
+
+    assert client.get("/api/quotes").status_code == 403
+    assert client.get("/api/quotes", headers={"X-Staff-Key": "wrong"}).status_code == 403
+    listed = client.get("/api/quotes", headers={"X-Staff-Key": "s3cret"}).json()["quotes"]
+    assert any(q["request_id"] == request_id for q in listed)

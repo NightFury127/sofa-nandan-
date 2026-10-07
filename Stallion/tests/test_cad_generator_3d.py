@@ -85,6 +85,7 @@ def test_quote_pipeline_handles_step_generation_failure():
                 "length_mm": 2100,
                 "width_mm": 900,
                 "height_mm": 850,
+                "sofa_type": "3_seater",
             },
             files={"image": ("sofa.png", png_bytes.tobytes(), "image/png")},
         )

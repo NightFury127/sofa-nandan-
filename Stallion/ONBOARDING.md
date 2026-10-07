@@ -174,7 +174,7 @@ Stallion/
 │   │   ├── 4-seater/
 │   │   └── L-shape/
 │   ├── pricing/                       # Component cost data
-│   │   └── cost_sheet.csv
+│   │   └── pricing.json
 │   └── sample_inputs/                 # Example test data
 │       ├── sample_input.json
 │       └── sample_request.json
@@ -311,7 +311,7 @@ Template BOM (master_template_spec.csv)
     ↓
 Apply component-specific scaling rules
     ↓
-Component Pricing (cost_sheet.csv)
+Component Pricing (pricing.json: rates, wastage, grades, labour)
     ↓
 Calculate costs per component
     ↓
@@ -530,7 +530,7 @@ if estimate.confidence_score < 0.5:
 **Data sources**:
 - `data/master_template/master_dimensions.csv` — baseline dimensions
 - `data/master_template/master_template_spec.csv` — component BOM template
-- `data/pricing/cost_sheet.csv` — component unit costs
+- `data/pricing/pricing.json` — rate sheet: material rates, wastage %, fabric/foam grades, labour and finishing per type, overhead and profit
 
 **Scaling logic**:
 ```
@@ -718,7 +718,7 @@ If you need to add a new capability:
 Data files in `data/` are used by the cost engine and CAD generator:
 - `master_template/master_dimensions.csv` — baseline specs
 - `master_template/master_template_spec.csv` — BOM template
-- `pricing/cost_sheet.csv` — component pricing
+- `pricing/pricing.json` — rate sheet (edit in the web app: Staff → Rates)
 
 **Before modifying**:
 1. Understand the schema (column names, data types)
@@ -833,7 +833,7 @@ If you need to support a new sofa category (e.g., "sectional"):
 
 To modify pricing or component scaling:
 
-1. **Edit** `data/pricing/cost_sheet.csv` (unit costs)
+1. **Edit** rates in the web app (Staff → Rates), or `data/pricing/pricing.json` by hand (validated on load)
 2. **Edit** `data/master_template/master_template_spec.csv` (scaling exponents)
 3. **Validate**:
    ```bash

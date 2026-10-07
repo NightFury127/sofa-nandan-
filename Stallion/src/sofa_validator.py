@@ -23,16 +23,25 @@ Detection is split into two layers:
 
 import os
 import json
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 import cv2
+
+from sofa_type_classifier import get_type_classifier
 
 # ---------------------------------------------------------------------------
 # Constants (shared by all backends)
 # ---------------------------------------------------------------------------
 
 MIN_CONFIDENCE = 0.25   # detections below this are ignored
+
+# Below this classifier confidence the detected type is not used to flag a
+# mismatch. Classifier v2 (2026-10-07): catalogue test >=0.6 -> 95.7% correct,
+# <0.6 -> 80.0%; 264 held-out room photos >=0.6 -> 83.5%, <0.6 -> 43.8%
+# (see docs/07_MODELS.md). A flag is only ever a suggestion to double-check.
+TYPE_CONFIDENCE_THRESHOLD = 0.6
 
 # Aspect-ratio thresholds (width ÷ height of bounding box)
 # Calibrated against real sofa photography:
@@ -70,6 +79,13 @@ COMPONENT_CLASSES = {
     4: "right_arm",
     5: "seat_cushion",
 }
+
+# Detections are mapped by class NAME (read from the model), so retrained
+# detectors with a different class order or merged classes keep working.
+# The id tables above are only the fallback for models without names.
+SOFA_TYPE_BY_NAME = {name: sofa_type for name, sofa_type in SOFA_TYPE_CLASSES.values()}
+COMPONENT_NAMES   = set(COMPONENT_CLASSES.values())
+_FALLBACK_NAMES   = {**{i: n for i, (n, _) in SOFA_TYPE_CLASSES.items()}, **COMPONENT_CLASSES}
 
 
 # ---------------------------------------------------------------------------
@@ -193,8 +209,11 @@ class StallionSofaDetector(SofaDetectorBase):
         masks = getattr(results, "masks", None)
         has_masks = masks is not None and hasattr(masks, "xy") and len(masks.xy) > 0
 
+        names = getattr(self._model, "names", None) or _FALLBACK_NAMES
+
         for idx, box in enumerate(boxes):
             cls_id = int(box.cls[0])
+            cls_name = names.get(cls_id, str(cls_id))
             conf   = float(box.conf[0])
             if conf < MIN_CONFIDENCE:
                 continue
@@ -208,23 +227,22 @@ class StallionSofaDetector(SofaDetectorBase):
                 if len(poly) > 0:
                     mask_polygon = [[round(float(pt[0]), 1), round(float(pt[1]), 1)] for pt in poly]
 
-            if cls_id in SOFA_TYPE_CLASSES:
-                label_name, sofa_type = SOFA_TYPE_CLASSES[cls_id]
+            if cls_name in SOFA_TYPE_BY_NAME:
                 det = {
                     "bbox":       bbox,
                     "confidence": round(conf, 4),
                     "class_id":   cls_id,
-                    "class_name": label_name,
-                    "sofa_type":  sofa_type,
+                    "class_name": cls_name,
+                    "sofa_type":  SOFA_TYPE_BY_NAME[cls_name],
                 }
                 if mask_polygon:
                     det["polygon"] = mask_polygon
                 sofa_detections.append(det)
 
-            elif cls_id in COMPONENT_CLASSES:
+            elif cls_name in COMPONENT_NAMES:
                 comp = {
                     "class_id":   cls_id,
-                    "class_name": COMPONENT_CLASSES[cls_id],
+                    "class_name": cls_name,
                     "confidence": round(conf, 4),
                     "bbox":       bbox,
                 }
@@ -278,6 +296,21 @@ def get_detector(custom_weights: str = None) -> SofaDetectorBase:
 
     print("[detector] Using COCO YOLOv8n fallback.")
     return YOLOv8DetectorBackend()
+
+
+_detector_cache = None
+# Ultralytics models aren't thread-safe, and the API serves requests from a
+# thread pool, so inference on the shared models is serialised.
+_model_lock = threading.Lock()
+
+
+def _shared_detector() -> SofaDetectorBase:
+    """Load the default detector once per process instead of on every request."""
+    global _detector_cache
+    with _model_lock:
+        if _detector_cache is None:
+            _detector_cache = get_detector()
+    return _detector_cache
 
 
 # ---------------------------------------------------------------------------
@@ -348,11 +381,15 @@ def _draw_annotated(image_bgr, detections, sofa_type, request_folder, ext=".jpg"
             ccol = comp_colors.get(cname, (180, 180, 180))
             cv2.rectangle(annotated, (cx1, cy1), (cx2, cy2), ccol, 1)
 
-    for det in detections:
+    for i, det in enumerate(detections):
         x1, y1, x2, y2 = [int(v) for v in det["bbox"]]
         conf  = det["confidence"]
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), colour, 3 if i == 0 else 1)
+        if i > 0:
+            # Only the best detection gets a label; overlapping boxes would
+            # print their labels on top of each other (e.g. "33-seater").
+            continue
         label = f"{_TYPE_LABELS.get(sofa_type, sofa_type)}  {conf:.0%}"
-        cv2.rectangle(annotated, (x1, y1), (x2, y2), colour, 3)
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
         cv2.rectangle(annotated, (x1, y1 - th - 10), (x1 + tw + 6, y1), colour, -1)
         cv2.putText(annotated, label, (x1 + 3, y1 - 6),
@@ -392,9 +429,10 @@ def validate_sofa(image_path, request_folder, detector=None):
     write_ext = ext if ext in (".jpg", ".jpeg", ".png") else ".jpg"
 
     if detector is None:
-        detector = get_detector()
+        detector = _shared_detector()
 
-    detections = detector.detect(image_path)
+    with _model_lock:
+        detections = detector.detect(image_path)
 
     # Gate 1: no sofa detected
     if not detections:
@@ -416,6 +454,24 @@ def validate_sofa(image_path, request_folder, detector=None):
 
     # Classify sofa type
     sofa_type = _classify_type(detections)
+    detector_type = sofa_type
+    type_source, type_confidence = "detector", None
+
+    # The whole-image type classifier is far more accurate than the detector's
+    # type rules on general sofas (95.4% vs 47.2% on the held-out catalogue
+    # test split, 81.1% on held-out room photos; see eval_sofa_types.py), so it
+    # decides the type when its weights exist. The detector still decides
+    # whether there is a sofa at all; its own type stays in detector_type.
+    # There is deliberately no "stallion-sofa* match keeps the detector's type"
+    # exception: the detector's Stallion classes fire on 628 of 878 generic room
+    # photos (conf up to 0.96), while the classifier calls 30 of 42 held-out
+    # Stallion photos a 3-seater on its own (docs/07_MODELS.md).
+    classifier = get_type_classifier()
+    if classifier is not None:
+        with _model_lock:
+            sofa_type, type_confidence = classifier.predict(image_path)
+        type_source = "classifier"
+
     best      = detections[0]
     x1, y1, x2, y2 = best["bbox"]
     aspect_ratio = round((x2 - x1) / (y2 - y1), 4) if (y2 - y1) > 0 else None
@@ -458,6 +514,9 @@ def validate_sofa(image_path, request_folder, detector=None):
         "annotated_image_path": annotated_path,
         "detector_backend":     type(detector).__name__,
         "components":           best.get("components", []),
+        "type_source":          type_source,
+        "type_confidence":      type_confidence,
+        "detector_type":        detector_type,
     }
     if "polygon" in best:
         analysis["polygon"] = best["polygon"]

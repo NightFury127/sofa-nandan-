@@ -60,7 +60,7 @@ User Input: sofa image + length/width/height (mm)
 The `src/image_processor.py` validates file type, resolution (minimum 200x200), max size (50 MB), and OpenCV readability. It generates an `image_metadata.json` for downstream processing.
 
 ### 2. Sofa Detection & Classification
-The validation layer (`src/sofa_validator.py`) uses a YOLO object detection pipeline. It uses `StallionSofaDetector` (trained on `models/sofa_detector.pt`) or a COCO fallback. It classifies the sofa as `1_seater`, `2_seater`, `3_seater`, `4_seater_plus`, or `l_shape` based on bounding box aspect ratio and multiple overlapping detections.
+The validation layer (`src/sofa_validator.py`) uses a YOLOv8 segmentation detector (`data/models/weights/sofa_detector.pt`, COCO fallback if missing) to confirm there is a sofa and find its parts, and a separate type classifier (`sofa_type_classifier.pt`) to decide `1_seater` / `2_seater` / `3_seater` / `4_seater_plus` / `l_shape` (95.4% on held-out catalogue photos, 81.1% on held-out room photos). The quote is priced with the type the user selects; the detected type only flags a likely wrong selection. See [docs/07_MODELS.md](docs/07_MODELS.md) for how to rebuild the models and their measured accuracy.
 
 ### 3. Dimension Estimation
 The `src/dimension_estimator.py` estimates the overall sofa height from the bounding box and a user-provided anchor length. It includes four confidence gates to suppress unreliable estimates, returning `estimated_dimensions` to the API.
@@ -95,6 +95,24 @@ python -m uvicorn api:app --reload --port 8000
 ```
 Then open the frontend in your browser at `http://localhost:8000/`.
 
+The web app (`frontend/index.html` + ES modules in `frontend/js/`) offers:
+- **Quote form** with per-type size ranges (from `master_dimensions.csv`, via `GET /api/config`), inline errors and photo guidance.
+- **Live progress** from the server (`GET /api/progress/{id}`) while the pipeline runs.
+- **Results** with the annotated photo, BOM, cost structure, CAD downloads and a rotatable **3D model** (`<model-viewer>`, bundled in `frontend/vendor/` so it works offline).
+- **Quote PDF** (`GET /api/quotes/{id}/pdf`), branded with SVCE and Stallion.
+- **Cost estimator** driven by the rate sheet `data/pricing/pricing.json`: material rates with a wastage % per material, fabric/foam grades (rate multipliers the customer picks in the form), fixed labour and finishing per sofa type, overhead and profit. Prices are exclusive of GST. Whole-unit items (pieces, cones) are rounded up.
+- **Rate editor** for staff (Staff → Rates, `GET/PUT /api/pricing`): every save is validated and the previous sheet is kept as `pricing.previous.json`.
+- **Price vs size** (`GET /api/size-options`): the price at ±100 mm on each dimension, at today's rates.
+- **Quote history** (`GET /api/quotes`) for staff. Set `STALLION_STAFF_KEY` on a shared server; staff enter it once per browser session. Without it, history only works from the server machine itself. Behind a reverse proxy every request looks local, so **always set the key there**.
+
+Optional environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `STALLION_STAFF_KEY` | Key required to view quote history |
+| `STALLION_ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API from another site |
+| `STALLION_PDF_NOTE` | Note printed under the PDF total (default: indicative-quotation wording) |
+
 ### Run via CLI
 ```bash
 cd src
@@ -111,12 +129,12 @@ Outputs are saved in the `outputs/` directory and include:
 
 ## Test Suite Health
 The project is currently passing all tests:
-- `tests/` directory contains 22 passing tests covering schemas, CAD generation, and phase validations.
+- `tests/` directory contains 36 passing tests covering schemas, CAD generation, cost scaling per sofa type, and the quote API.
 - Root-level validation scripts (`test_detector_fix_validation.py`, `test_dimension_estimator.py`, etc.) all pass.
 
 ## Known Issues & Limitations
-- **Data Placeholders**: Pricing (`cost_sheet.csv`) and BOM quantities are currently placeholders. Real production data is pending.
-- **ML Dataset**: The YOLOv8 model was trained primarily on 3-seater images. Multi-class accuracy is unverified without retraining on a broader dataset. 4-seater images are severely under-represented.
+- **Data Placeholders**: The rate sheet (`data/pricing/pricing.json`) and BOM quantities are placeholders; set real rates in the staff rate editor. Prices are exclusive of GST.
+- **ML Models**: Training data lives outside git (`merged_sofa_dataset.zip` for the detector, `data/datasets/raw/` for the type classifier). 4-seater has only 3 photos and cannot be detected; 3-seater has only 9 test photos. Details and numbers in [docs/07_MODELS.md](docs/07_MODELS.md).
 - **Frontend Dimension UX**: The API returns estimated dimensions, but the frontend (`frontend/index.html`) does not yet render the UI for users to confirm or override these heights.
 
 
@@ -125,4 +143,4 @@ The project is currently passing all tests:
 2. Validate the dimension estimator with real sofa photos.
 
 4. Ingest real pricing and BOM data from the manufacturing team.
-5. Retrain `sofa_detector.pt` on a merged dataset with a balanced class distribution.
+5. Collect more 3-seater / 4-seater photos and some real room photos for testing.
