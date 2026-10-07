@@ -8,11 +8,80 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='1' width='30' height='30' fill='%23f0ede6' stroke='%2310100f' stroke-width='2'/%3E%3Ctext x='16' y='23' font-family='Arial' font-weight='700' font-size='19' text-anchor='middle' fill='%2310100f'%3ES%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/static/styles.css" />
+  <script>
+    // Decide before first paint whether the start page shows (once per session)
+    try {
+      if (sessionStorage.getItem("stallion-intro-seen") !== "1")
+        document.documentElement.classList.add("intro-open", "intro-instant");
+    } catch (e) {
+      document.documentElement.classList.add("intro-open", "intro-instant");
+    }
+  </script>
+  <script type="module" src="/static/js/main.js"></script>
 </head>
 <body>
   <div class="noise"></div>
   <div class="cursor-glow"></div>
+
+  <!-- Start page: shown on first visit in a session, reopened from the SVCE logo -->
+  <section class="intro" id="intro" aria-label="About Stallion" aria-hidden="true">
+    <div class="intro-top">
+      <img class="intro-logo" src="/static/assets/svce-logo.png" alt="Sri Venkateshwara College of Engineering, Bengaluru" />
+      <span class="mono">PROJECT / 2026</span>
+    </div>
+
+    <div class="intro-body">
+      <div class="intro-copy">
+        <div class="mono intro-kicker">STALLION / FURNITURE ENGINEERING STUDIO</div>
+        <h1>From photograph<br>to <em>production.</em></h1>
+        <p>
+          Stallion turns a single sofa photograph and three dimensions into a
+          scaled bill of materials, a costed quotation and CAD drawings,
+          in under a minute.
+        </p>
+        <p class="intro-credit">
+          Designed and built at
+          <strong>Sri Venkateshwara College of Engineering, Bengaluru</strong>.
+        </p>
+
+        <dl class="intro-facts">
+          <div><dt>CONFIGURATIONS</dt><dd>05</dd></div>
+          <div><dt>PIPELINE</dt><dd>IMAGE → BOM → CAD</dd></div>
+          <div><dt>OUTPUTS</dt><dd>STEP · DXF · PNG</dd></div>
+        </dl>
+
+        <button type="button" class="intro-enter" id="intro-enter">
+          ENTER THE STUDIO <b>→</b>
+        </button>
+      </div>
+
+      <div class="intro-mosaic" aria-hidden="true">
+        <figure class="tile tile-main">
+          <img src="/static/assets/studio/studio-sofa.jpg" alt="" />
+          <figcaption>01 / FORM</figcaption>
+        </figure>
+        <figure class="tile">
+          <img src="/static/assets/studio/studio-upholstery.jpg" alt="" />
+          <figcaption>02 / MATERIAL</figcaption>
+        </figure>
+        <figure class="tile">
+          <img src="/static/assets/studio/studio-workshop.jpg" alt="" />
+          <figcaption>03 / CRAFT</figcaption>
+        </figure>
+        <figure class="tile">
+          <img src="/static/assets/studio/studio-interior.jpg" alt="" />
+          <figcaption>04 / SPACE</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="intro-bottom mono">
+      <span>SVCE · BENGALURU</span>
+      <span>FURNITURE ENGINEERING / DIGITAL COSTING / CAD</span>
+    </div>
+  </section>
 
   <header class="topbar">
     <a class="brand" href="#top" aria-label="Stallion home">
@@ -21,35 +90,38 @@
       <span class="brand-sub">FURNITURE ENGINEERING</span>
     </a>
 
-    <nav class="nav">
-      <a href="#studio">Studio</a>
-      <a href="#configure">Configure</a>
-      <a href="#results">Output</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#problem">The problem</a>
+      <a href="#how">How it works</a>
+      <a href="#configure">Get a quote</a>
+      <a href="#svce">About SVCE</a>
+      <button type="button" class="nav-button" id="history-btn">Staff</button>
     </nav>
 
-    <div class="institution">
+    <button type="button" class="institution" id="about-btn" title="About this project">
       <img src="/static/assets/svce-logo.png" alt="Sri Venkateshwara College of Engineering" />
       <span>SVCE · BENGALURU</span>
-    </div>
+    </button>
   </header>
 
-  <main id="top">
+  <main id="top" tabindex="-1">
     <section class="hero" id="studio">
       <div class="hero-grid"></div>
-      <div class="hero-kicker"><span></span> DIGITAL FURNITURE STUDIO / 01</div>
+      <div class="hero-kicker"><span></span> STALLION · A PROJECT AT SVCE BENGALURU</div>
       <h1>
         FURNITURE,<br>
         <em>ENGINEERED.</em>
       </h1>
       <p class="hero-copy">
-        From a single sofa image to a manufacturable specification,
-        scaled bill of materials and quotation.
+        From a single sofa photograph to a scaled bill of materials,
+        a priced quotation and CAD drawings.
+        <a class="hero-link" href="#how">See how it works ↓</a>
       </p>
 
       <div class="hero-bottom">
-        <a class="circle-cta" href="#configure" aria-label="Start a project">
-          <span>START<br>PROJECT</span>
-          <b>↘</b>
+        <a class="circle-cta" href="#configure" aria-label="Get a quote">
+          <span>GET A<br>QUOTE</span>
+          <b aria-hidden="true">↘</b>
         </a>
         <div class="hero-specs">
           <span>IMAGE → GEOMETRY</span>
@@ -79,50 +151,96 @@
       </div>
     </section>
 
-    <section class="project-section" id="configure">
-      <div class="section-index">02 / PROJECT INPUT</div>
+    <section class="studio-strip" id="problem" aria-labelledby="problem-title">
+      <div class="studio-strip-copy">
+        <div class="section-index">01 / THE PROBLEM</div>
+        <h2 id="problem-title">Every size,<br><em>a new quote.</em></h2>
+        <p>Change a sofa's width by a few centimetres and the wood, foam, fabric and springs all change with it. Working that out by hand for every enquiry is slow, and estimates can vary from person to person.</p>
+        <p>Stallion does the arithmetic the same way every time, from the factory's own material rates — so a quote reflects the sofa that will actually be built.</p>
+      </div>
+      <figure><img src="/static/assets/studio/studio-upholstery.jpg" alt="Close-up of buttoned upholstery" loading="lazy" /><figcaption>MATERIAL / FOAM · FABRIC · SPRINGS</figcaption></figure>
+      <figure><img src="/static/assets/studio/studio-workshop.jpg" alt="Carpenter's workshop with hand tools" loading="lazy" /><figcaption>CRAFT / FRAME · JOINERY</figcaption></figure>
+      <figure><img src="/static/assets/studio/studio-interior.jpg" alt="Finished living room with sofas" loading="lazy" /><figcaption>SPACE / THE FINISHED PIECE</figcaption></figure>
+    </section>
+
+    <section class="process-section" id="how" aria-labelledby="how-title">
+      <div class="section-index">02 / HOW IT WORKS</div>
+      <h2 class="process-title" id="how-title">ONE PHOTO.<br><em>FOUR STEPS.</em></h2>
+      <ol class="process-line">
+        <li><span>01</span><b>DETECT</b><small>Finds the sofa and its parts — seat, back, arms, legs — and checks the type you chose against the photo.</small></li>
+        <li class="process-arrow" aria-hidden="true">→</li>
+        <li><span>02</span><b>SCALE</b><small>Scales every line of the bill of materials to your exact width, depth and height.</small></li>
+        <li class="process-arrow" aria-hidden="true">→</li>
+        <li><span>03</span><b>PRICE</b><small>Prices materials, labour, finishing, overhead and margin from the factory's rate sheet.</small></li>
+        <li class="process-arrow" aria-hidden="true">→</li>
+        <li><span>04</span><b>MODEL</b><small>Draws the technical views and builds DXF, STEP and 3D files, plus a quotation PDF.</small></li>
+      </ol>
+      <a class="section-cta" href="#configure">Try it with a photo <b aria-hidden="true">↓</b></a>
+    </section>
+
+    <section class="project-section" id="configure" aria-labelledby="configure-title">
+      <div class="section-index">03 / GET A QUOTE</div>
       <div class="section-heading">
-        <h2>Bring us<br><em>the form.</em></h2>
-        <p>Upload a reference. Define the dimensions. Stallion handles the engineering layer.</p>
+        <h2 id="configure-title">Bring us<br><em>the sofa.</em></h2>
+        <p>Upload a photo, choose the type and enter three dimensions. Your quote, drawings and 3D model are ready in under a minute.</p>
       </div>
 
       <form id="project-form" class="studio-form">
         <div class="upload-panel" id="upload-zone">
-          <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp" />
+          <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp"
+                 aria-label="Sofa photo: choose or drop a JPG, PNG or WEBP image"
+                 aria-describedby="photo-tips photo-error" />
           <div class="upload-grid"></div>
           <div class="upload-copy">
             <span class="mono">REFERENCE / 001</span>
             <strong>DROP SOFA IMAGE</strong>
-            <span>JPG · PNG · WEBP</span>
+            <span>JPG · PNG · WEBP · UP TO 15 MB</span>
           </div>
-          <div class="upload-arrow">↗</div>
+          <div class="upload-arrow" aria-hidden="true">↗</div>
           <div class="preview-stage" id="preview-stage">
-            <img id="preview-img" alt="Sofa preview" />
+            <img id="preview-img" alt="Selected sofa photo" />
           </div>
+        </div>
+        <p class="sr-only" id="upload-status" role="status"></p>
+        <p class="field-error photo-error" id="photo-error" role="alert" hidden></p>
+
+        <div class="photo-tips" id="photo-tips">
+          <span class="field-label">FOR THE BEST RESULT</span>
+          <ul>
+            <li><b>Whole sofa in frame</b> — both arms and the legs visible</li>
+            <li><b>From the front</b> — straight on or slightly to one side</li>
+            <li><b>Good light</b> — daylight or a well-lit room, no strong backlight</li>
+            <li><b>One sofa only</b> — crop out other furniture if you can</li>
+          </ul>
         </div>
 
         <div class="form-columns">
           <div class="form-block">
-            <div class="field-label">SOFA CONFIGURATION</div>
-            <div class="sofa-types" id="sofa-types">
-              <button type="button" class="sofa-type" data-type="1_seater">
-                <span class="type-number">01</span>
-                <svg viewBox="0 0 160 70"><path d="M25 52V32Q25 19 39 19H121Q135 19 135 32V52M25 35H135M42 35V52M118 35V52M36 52V62M124 52V62"/></svg>
+            <div class="field-label" id="type-label">SOFA CONFIGURATION <span id="type-required">— SELECT ONE</span></div>
+            <div class="sofa-types" id="sofa-types" role="radiogroup" aria-labelledby="type-label" aria-required="true">
+              <button type="button" class="sofa-type" role="radio" aria-checked="false" data-type="1_seater">
+                <span class="type-number" aria-hidden="true">01</span>
+                <svg viewBox="0 0 160 70" aria-hidden="true"><path d="M25 52V32Q25 19 39 19H121Q135 19 135 32V52M25 35H135M42 35V52M118 35V52M36 52V62M124 52V62"/></svg>
                 <b>1 SEATER</b>
               </button>
-              <button type="button" class="sofa-type" data-type="2_seater">
-                <span class="type-number">02</span>
-                <svg viewBox="0 0 160 70"><path d="M18 52V32Q18 19 32 19H128Q142 19 142 32V52M18 35H142M51 35V52M109 35V52M29 52V62M131 52V62"/></svg>
+              <button type="button" class="sofa-type" role="radio" aria-checked="false" data-type="2_seater">
+                <span class="type-number" aria-hidden="true">02</span>
+                <svg viewBox="0 0 160 70" aria-hidden="true"><path d="M18 52V32Q18 19 32 19H128Q142 19 142 32V52M18 35H142M51 35V52M109 35V52M29 52V62M131 52V62"/></svg>
                 <b>2 SEATER</b>
               </button>
-              <button type="button" class="sofa-type" data-type="3_seater">
-                <span class="type-number">03</span>
-                <svg viewBox="0 0 160 70"><path d="M12 52V32Q12 19 26 19H134Q148 19 148 32V52M12 35H148M48 35V52M80 35V52M112 35V52M23 52V62M137 52V62"/></svg>
+              <button type="button" class="sofa-type" role="radio" aria-checked="false" data-type="3_seater">
+                <span class="type-number" aria-hidden="true">03</span>
+                <svg viewBox="0 0 160 70" aria-hidden="true"><path d="M12 52V32Q12 19 26 19H134Q148 19 148 32V52M12 35H148M48 35V52M80 35V52M112 35V52M23 52V62M137 52V62"/></svg>
                 <b>3 SEATER</b>
               </button>
-              <button type="button" class="sofa-type" data-type="l_shape">
-                <span class="type-number">04</span>
-                <svg viewBox="0 0 160 70"><path d="M18 52V28Q18 18 29 18H92Q103 18 103 29V52H145V62H18ZM32 35H92M32 35V52M58 35V52M84 35V52M103 52V31Q103 22 113 22H132Q142 22 142 32V52"/></svg>
+              <button type="button" class="sofa-type" role="radio" aria-checked="false" data-type="4_seater_plus">
+                <span class="type-number" aria-hidden="true">04</span>
+                <svg viewBox="0 0 160 70" aria-hidden="true"><path d="M6 52V32Q6 19 20 19H140Q154 19 154 32V52M6 35H154M43 35V52M80 35V52M117 35V52M17 52V62M143 52V62"/></svg>
+                <b>4 SEATER</b>
+              </button>
+              <button type="button" class="sofa-type" role="radio" aria-checked="false" data-type="l_shape">
+                <span class="type-number" aria-hidden="true">05</span>
+                <svg viewBox="0 0 160 70" aria-hidden="true"><path d="M18 52V28Q18 18 29 18H92Q103 18 103 29V52H145V62H18ZM32 35H92M32 35V52M58 35V52M84 35V52M103 52V31Q103 22 113 22H132Q142 22 142 32V52"/></svg>
                 <b>L SHAPE</b>
               </button>
             </div>
@@ -131,9 +249,24 @@
           <div class="form-block dimensions">
             <div class="field-label">DIMENSIONS / MILLIMETRES</div>
             <div class="dimension-grid">
-              <label><span>WIDTH</span><input id="length-input" type="number" min="1" placeholder="2100"><i>mm</i></label>
-              <label><span>DEPTH</span><input id="width-input" type="number" min="1" placeholder="900"><i>mm</i></label>
-              <label><span>HEIGHT</span><input id="height-input" type="number" min="1" placeholder="850"><i>mm</i></label>
+              <div class="dim-field">
+                <label for="length-input"><span>WIDTH</span><small>arm to arm</small></label>
+                <div class="dim-input"><input id="length-input" type="number" inputmode="numeric" placeholder="2100" aria-describedby="width-hint width-error"><i>mm</i></div>
+                <span class="dim-hint" id="width-hint"></span>
+                <span class="field-error" id="width-error" hidden></span>
+              </div>
+              <div class="dim-field">
+                <label for="width-input"><span>DEPTH</span><small>front to back</small></label>
+                <div class="dim-input"><input id="width-input" type="number" inputmode="numeric" placeholder="900" aria-describedby="depth-hint depth-error"><i>mm</i></div>
+                <span class="dim-hint" id="depth-hint"></span>
+                <span class="field-error" id="depth-error" hidden></span>
+              </div>
+              <div class="dim-field">
+                <label for="height-input"><span>HEIGHT</span><small>floor to top of back</small></label>
+                <div class="dim-input"><input id="height-input" type="number" inputmode="numeric" placeholder="850" aria-describedby="height-hint height-error"><i>mm</i></div>
+                <span class="dim-hint" id="height-hint"></span>
+                <span class="field-error" id="height-error" hidden></span>
+              </div>
             </div>
             <div class="dimension-drawing">
               <span class="dim-line horizontal">← <b>WIDTH</b> →</span>
@@ -143,54 +276,72 @@
           </div>
         </div>
 
+        <div class="material-grades" id="material-grades">
+          <fieldset class="grade-group">
+            <legend class="field-label">FABRIC</legend>
+            <div class="grade-options" data-group="fabric"></div>
+          </fieldset>
+          <fieldset class="grade-group">
+            <legend class="field-label">FOAM</legend>
+            <div class="grade-options" data-group="foam"></div>
+          </fieldset>
+          <p class="grade-note">Grades change the material rates; the factory sets them in Staff → Rates.</p>
+        </div>
+
         <div class="form-footer">
           <label class="customer-field">
             <span>CLIENT / CUSTOMER</span>
-            <input id="customer-input" type="text" placeholder="Client name">
+            <input id="customer-input" type="text" placeholder="Client name" autocomplete="organization">
           </label>
-          <button class="generate-button" id="submit-btn" type="submit" disabled>
-            <span>GENERATE SPECIFICATION</span><b>↗</b>
-          </button>
+          <div class="submit-wrap">
+            <button class="generate-button" id="submit-btn" type="submit" disabled aria-describedby="submit-hint">
+              <span>GENERATE SPECIFICATION</span><b aria-hidden="true">↗</b>
+            </button>
+            <p class="submit-hint" id="submit-hint" aria-live="polite"></p>
+          </div>
         </div>
       </form>
     </section>
 
-    <section class="process-section">
-      <div class="section-index">03 / ENGINE</div>
-      <div class="process-title">ONE IMAGE.<br><em>FOUR LAYERS.</em></div>
-      <div class="process-line">
-        <div><span>01</span><b>DETECT</b><small>Geometry & type</small></div>
-        <i>→</i>
-        <div><span>02</span><b>SCALE</b><small>Manufacturing BOM</small></div>
-        <i>→</i>
-        <div><span>03</span><b>PRICE</b><small>Materials & labour</small></div>
-        <i>→</i>
-        <div><span>04</span><b>MODEL</b><small>CAD output</small></div>
-      </div>
-    </section>
-
-    <section class="processing" id="processing">
-      <div class="processing-ring"></div>
+    <section class="processing" id="processing" aria-labelledby="processing-title">
+      <div class="processing-ring" aria-hidden="true"></div>
       <div class="mono">STALLION ENGINE / PROCESSING</div>
-      <h3 id="processing-title">READING FORM</h3>
-      <p id="processing-sub">Extracting furniture geometry and manufacturing parameters.</p>
-      <div class="progress-track"><span id="progress-bar"></span></div>
-      <div class="process-status" id="process-status">INITIALISING</div>
+      <h3 id="processing-title" aria-live="polite">RECEIVING THE PHOTO</h3>
+      <div class="progress-track" aria-hidden="true"><span id="progress-bar"></span></div>
+      <div class="process-status"><span id="process-status">STEP 1</span> · <span id="processing-elapsed">0 s elapsed</span></div>
+      <ol class="progress-steps" id="progress-steps"></ol>
+      <p id="processing-sub">Usually 10–40 seconds. The 3D and CAD files take the longest.</p>
     </section>
 
     <section class="results-section" id="results">
       <div class="results-top">
         <div>
-          <div class="section-index">04 / OUTPUT</div>
+          <div class="section-index">03 / YOUR QUOTE</div>
           <h2>SPECIFICATION<br><em>READY.</em></h2>
         </div>
         <button class="outline-button" id="new-request-btn">+ NEW PROJECT</button>
       </div>
 
       <div class="result-hero">
-        <div class="result-image" id="result-image-wrap">
-          <img id="annotated-img" alt="Detected sofa" />
-          <div class="image-overlay">DETECTION / YOLOv8</div>
+        <div class="result-media">
+          <div class="media-tabs" role="tablist" aria-label="Result view">
+            <button type="button" role="tab" class="media-tab" id="tab-3d" aria-controls="result-3d" aria-selected="true">3D MODEL</button>
+            <button type="button" role="tab" class="media-tab" id="tab-photo" aria-controls="result-image-wrap" aria-selected="false" tabindex="-1">DETECTION PHOTO</button>
+            <button type="button" class="media-fullscreen" id="media-fullscreen" aria-label="Show the 3D model full screen">FULL SCREEN <span aria-hidden="true">⤢</span></button>
+          </div>
+
+          <div class="result-3d" id="result-3d" role="tabpanel" aria-labelledby="tab-3d">
+            <div class="result-3d-stage" id="twin-viewer"></div>
+            <div class="mono result-3d-status" id="result-3d-status">LOADING 3D MODEL…</div>
+            <div class="image-overlay" aria-hidden="true">3D MODEL · DRAG TO ROTATE · SCROLL TO ZOOM</div>
+          </div>
+
+          <div class="result-image" id="result-image-wrap" role="tabpanel" aria-labelledby="tab-photo" hidden>
+            <img id="annotated-img" alt="Your photo with the detected sofa parts outlined" />
+            <div class="mono annotated-empty" id="annotated-empty" hidden>NO ANNOTATED PREVIEW</div>
+            <button type="button" class="photo-enlarge" id="photo-enlarge" aria-label="Open the annotated photo full screen"></button>
+            <div class="image-overlay" aria-hidden="true">DETECTION / YOLOv8 · CLICK TO ENLARGE</div>
+          </div>
         </div>
         <div class="result-ident">
           <span class="mono">DETECTED CONFIGURATION</span>
@@ -200,6 +351,8 @@
             <div><i id="conf-fill"></i></div>
           </div>
           <p id="detected-meta">—</p>
+          <p class="type-mismatch" id="type-mismatch" role="note" hidden></p>
+          <div class="component-inspection" id="component-inspection"></div>
         </div>
       </div>
 
@@ -217,32 +370,43 @@
           <span class="mono">FINAL QUOTATION</span>
           <strong id="final-price">₹—</strong>
           <span>INCLUDING OVERHEAD & PROFIT</span>
+          <a class="pdf-button" id="pdf-btn" href="#" download>
+            <span>DOWNLOAD QUOTE PDF</span><b aria-hidden="true">↓</b>
+          </a>
         </div>
       </div>
 
       <div class="output-columns">
         <div>
-          <div class="result-label">05 / BILL OF MATERIALS</div>
+          <div class="result-label">BILL OF MATERIALS</div>
           <div class="bom-table-wrap">
             <table>
-              <thead><tr><th>COMPONENT</th><th>RULE</th><th>QTY</th><th>UNIT</th><th>TOTAL</th></tr></thead>
+              <thead><tr><th scope="col">COMPONENT</th><th scope="col">ORDER QTY</th><th scope="col">WASTAGE</th><th scope="col">RATE</th><th scope="col">TOTAL</th></tr></thead>
               <tbody id="bom-tbody"></tbody>
             </table>
           </div>
         </div>
 
         <div>
-          <div class="result-label">06 / COST STRUCTURE</div>
+          <div class="result-label">COST STRUCTURE</div>
           <div class="cost-list" id="quote-rows"></div>
+          <p class="quote-terms" id="quote-terms"></p>
+
+          <div class="result-label size-label">PRICE VS SIZE</div>
+          <p class="size-intro">What the same sofa would cost 100 mm larger or smaller on each side, at today's rates.</p>
+          <table class="size-table">
+            <thead><tr><th scope="col">CHANGE</th><th scope="col">SIZE (W × D × H)</th><th scope="col">PRICE</th><th scope="col">DIFFERENCE</th></tr></thead>
+            <tbody id="size-tbody"><tr><td colspan="4">Calculating…</td></tr></tbody>
+          </table>
         </div>
       </div>
 
       <div class="digital-twin">
         <div class="twin-grid"></div>
         <div class="twin-copy">
-          <span class="mono">07 / DIGITAL TWIN</span>
+          <span class="mono">3D MODEL &amp; CAD FILES</span>
           <h3>FROM SPEC<br>TO <em>CAD.</em></h3>
-          <p>Production-ready geometry and technical drawing outputs generated from the approved specification.</p>
+          <p>Production-ready geometry and technical drawing outputs generated from the approved specification. The 3D model is shown at the top of your quote.</p>
           <div class="cad-actions" id="cad-files">
             <span>No CAD output available.</span>
           </div>
@@ -264,7 +428,7 @@
       <div class="fusion-strip">
         <div><span class="mono">FUSION 360 / STALLIONLINK</span><b id="fp-path">—</b></div>
         <div class="fusion-params">
-          <span><b id="fp-length">—</b> L</span>
+          <span><b id="fp-length">—</b> W</span>
           <span><b id="fp-width">—</b> D</span>
           <span><b id="fp-height">—</b> H</span>
         </div>
@@ -273,22 +437,75 @@
     </section>
 
     <section class="rejection" id="reject-section">
-      <div class="section-index">OUTPUT / REVIEW</div>
+      <div class="section-index">03 / YOUR QUOTE</div>
       <h2 id="reject-title">INPUT<br><em>REVIEW.</em></h2>
-      <p id="reject-reason"></p>
+      <p id="reject-reason" role="alert"></p>
       <div id="reject-detail"></div>
-      <button class="outline-button" id="retry-btn">← TRY ANOTHER IMAGE</button>
+      <button class="outline-button" id="retry-btn">← BACK TO THE FORM</button>
+    </section>
+
+    <section class="svce-section" id="svce" aria-labelledby="svce-title">
+      <div class="svce-grid" aria-hidden="true"></div>
+      <div class="svce-head">
+        <div class="section-index">04 / BUILT AT SVCE</div>
+        <img class="svce-logo" src="/static/assets/svce-logo.png" alt="Sri Venkateshwara College of Engineering, Bengaluru — Estd. 2001, Autonomous Institute" />
+      </div>
+
+      <div class="svce-body">
+        <h2 class="svce-title" id="svce-title">Engineering,<br><em>applied.</em></h2>
+        <div class="svce-story">
+          <!-- Department line: fill in the department name and remove `hidden` -->
+          <p class="svce-dept" hidden>Developed in the Department of ________, SVCE Bengaluru.</p>
+          <p class="svce-lead">
+            Stallion is a project developed at Sri Venkateshwara College of Engineering,
+            Bengaluru. It takes the work a furniture factory does for every enquiry —
+            reading the design, sizing it, costing it and drawing it — and turns it into
+            one repeatable workflow.
+          </p>
+          <p>
+            It brings several engineering disciplines together: computer vision models
+            trained on sofa photographs, a cost engine that scales a real bill of
+            materials to any size, and generators for technical drawings, 3D models
+            and production CAD files.
+          </p>
+          <p>
+            The aim is practical — giving furniture makers a faster, more consistent
+            way to answer the question every customer asks first: <em>what will it cost?</em>
+          </p>
+        </div>
+      </div>
+
+      <dl class="svce-facts">
+        <div><dt>THE COLLEGE</dt><dd>Sri Venkateshwara College of Engineering, Bengaluru</dd></div>
+        <div><dt>ESTABLISHED</dt><dd>2001 · Autonomous institute</dd></div>
+        <div><dt>THE PROJECT</dt><dd>5 sofa configurations · 6 detected parts</dd></div>
+        <div><dt>OUTPUTS</dt><dd>Bill of materials · Quote PDF · DXF · STEP · 3D</dd></div>
+      </dl>
+
+      <a class="section-cta light" href="#configure">Get a quote <b aria-hidden="true">↑</b></a>
     </section>
   </main>
 
   <footer>
-    <div class="footer-brand">STALLION</div>
-    <div>FURNITURE ENGINEERING / DIGITAL COSTING / CAD</div>
-    <div class="footer-svce"><img src="/static/assets/svce-logo.png" alt="SVCE"> SRI VENKATESHWARA COLLEGE OF ENGINEERING</div>
+    <div class="footer-col">
+      <div class="footer-brand">STALLION</div>
+      <p>Furniture engineering, digital costing and CAD — a project at SVCE Bengaluru.</p>
+    </div>
+    <nav class="footer-nav" aria-label="Footer">
+      <a href="#problem">The problem</a>
+      <a href="#how">How it works</a>
+      <a href="#configure">Get a quote</a>
+      <a href="#svce">About SVCE</a>
+      <button type="button" data-open-staff>Staff</button>
+    </nav>
+    <div class="footer-svce">
+      <img src="/static/assets/svce-logo.png" alt="Sri Venkateshwara College of Engineering, Bengaluru">
+      <span>© 2026 Stallion · Sri Venkateshwara College of Engineering</span>
+    </div>
   </footer>
 
 <!-- Full-screen detection inspection viewer -->
-<div class="inspection-viewer" id="inspection-viewer" aria-hidden="true">
+<div class="inspection-viewer" id="inspection-viewer" role="dialog" aria-modal="true" aria-label="Annotated photo, full screen" aria-hidden="true">
   <div class="inspection-viewer-top">
     <span class="mono">STALLION / DETECTION INSPECTION</span>
     <button class="inspection-close" id="inspection-close" type="button">
@@ -324,7 +541,31 @@
   </div>
 </div>
 
-<script src="/static/app.js"></script>
+<!-- Staff: quote history and rate editor -->
+<div class="history-panel" id="history-panel" hidden>
+  <aside class="history-drawer" role="dialog" aria-modal="true" aria-labelledby="history-title">
+    <div class="history-head">
+      <h2 id="history-title">Staff</h2>
+      <button type="button" class="inspection-close" id="history-close">CLOSE <span aria-hidden="true">×</span></button>
+    </div>
+    <div class="staff-tabs" role="tablist" aria-label="Staff tools">
+      <button type="button" role="tab" class="staff-tab" id="staff-tab-quotes" aria-controls="staff-quotes" aria-selected="true">QUOTES</button>
+      <button type="button" role="tab" class="staff-tab" id="staff-tab-rates" aria-controls="staff-rates" aria-selected="false" tabindex="-1">RATES</button>
+    </div>
+    <p class="history-status" id="history-status" role="status"></p>
+    <form class="history-key-form" id="history-key-form" hidden>
+      <label for="history-key">Staff key</label>
+      <input id="history-key" type="password" autocomplete="current-password" required>
+      <button type="submit" class="outline-button">UNLOCK</button>
+    </form>
+    <div id="staff-quotes" role="tabpanel" aria-labelledby="staff-tab-quotes">
+      <ul class="history-list" id="history-list"></ul>
+    </div>
+    <div id="staff-rates" role="tabpanel" aria-labelledby="staff-tab-rates" hidden>
+      <form class="rates-form" id="rates-form" novalidate></form>
+    </div>
+  </aside>
+</div>
 </body>
 </html>
 
