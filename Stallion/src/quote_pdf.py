@@ -32,9 +32,10 @@ COST_ROWS = [
     ("Subtotal", "subtotal"), ("Overhead", "overhead"), ("Profit", "profit"),
 ]
 
-# Shown under the total. The rates in data/pricing/pricing.json are still
-# placeholders, so by default the PDF says the price is indicative.
-DEFAULT_NOTE = ("Indicative quotation. Prices are exclusive of GST. Quantities include a cutting allowance. "
+# Shown under the total. The rates in data/pricing/pricing.json are researched
+# market rates, not supplier quotes, so by default the PDF says it is indicative.
+DEFAULT_NOTE = ("Indicative quotation based on current market rates. The factory price excludes GST; the "
+                "retail equivalent is an estimate. Quantities include a cutting allowance. "
                 "Final price is subject to confirmation of materials and finish.")
 
 
@@ -144,7 +145,7 @@ def build_quote_pdf(request_folder: Path) -> bytes:
 
     # ── Photo + drawing ───────────────────────────────────────────────────────
     y = pdf.get_y() + 4
-    box_w, box_h = (page_w - 6) / 2, 48
+    box_w, box_h = (page_w - 6) / 2, 42
     photo = _find_photo(request_folder)
     drawing = None
     if data.get("cad_preview_url"):
@@ -177,30 +178,37 @@ def build_quote_pdf(request_folder: Path) -> bytes:
     pdf.set_text_color(*INK)
     pdf.set_draw_color(*LINE)
     for row in data.get("bom") or []:
-        values = [row.get("component", ""), f"{float(row.get('qty', 0)):g}", row.get("unit") or "",
+        values = [row.get("component", ""), f"{round(float(row.get('qty', 0)), 2):g}", row.get("unit") or "",
                   inr(row.get("unit_cost", 0)), inr(row.get("total_cost", 0))]
         for (name, frac, align), value in zip(cols, values):
-            pdf.cell(page_w * frac, 6.5, str(value), border="B", align=align)
+            pdf.cell(page_w * frac, 5.6, str(value), border="B", align=align)
         pdf.ln()
 
     # ── Totals ────────────────────────────────────────────────────────────────
-    pdf.ln(4)
+    pdf.ln(2)
     label_w, value_w = page_w * 0.75, page_w * 0.25
     pdf.set_font("Helvetica", "", 9)
     for label, key in COST_ROWS:
         if key not in q:
             continue
         pdf.set_text_color(*MUTED)
-        pdf.cell(label_w, 6, label, align="R")
+        pdf.cell(label_w, 5.2, label, align="R")
         pdf.set_text_color(*INK)
-        pdf.cell(value_w, 6, inr(q[key]), align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(value_w, 5.2, inr(q[key]), align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.set_draw_color(*INK)
     pdf.line(pdf.l_margin + page_w * 0.55, pdf.get_y() + 1, pdf.l_margin + page_w, pdf.get_y() + 1)
     pdf.ln(3)
     pdf.set_font("Helvetica", "B", 13)
-    pdf.cell(label_w, 9, "Total (INR, excl. GST)", align="R")
+    pdf.cell(label_w, 9, "Factory price (INR, excl. GST)", align="R")
     pdf.set_text_color(*ACCENT)
     pdf.cell(value_w, 9, inr(q.get("final_quotation_price", 0)), align="R", new_x="LMARGIN", new_y="NEXT")
+    if q.get("retail_price_incl_gst") is not None:   # older saved quotes lack it
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(label_w, 6, f"Retail equivalent estimate (dealer markup {q.get('dealer_markup_pct', 0):g}% "
+                             f"+ GST {q.get('gst_pct', 0):g}%)", align="R")
+        pdf.set_text_color(*INK)
+        pdf.cell(value_w, 6, inr(q["retail_price_incl_gst"]), align="R", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(3)
     pdf.set_font("Helvetica", "I", 7.5)

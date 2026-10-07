@@ -1,6 +1,7 @@
 """
 pricing.py — The factory's rate sheet: material rates, wastage, fabric/foam
-grades, labour and finishing per sofa type, overhead and profit.
+grades, labour and finishing per sofa type, overhead and profit, plus the
+dealer markup and GST used for the retail-equivalent estimate.
 
 Stored in data/pricing/pricing.json (edited by staff in the web app's rate
 editor, or by hand). Every save is validated first, written atomically, and
@@ -81,6 +82,10 @@ def validate_pricing(data: dict) -> dict:
 
     out["overhead_pct"] = _number(data.get("overhead_pct"), "Overhead %", 0, 200)
     out["profit_pct"] = _number(data.get("profit_pct"), "Profit %", 0, 200)
+    # Retail-equivalent estimate shown next to the factory price. Defaults keep
+    # rate sheets saved before these fields existed loading.
+    out["dealer_markup_pct"] = _number(data.get("dealer_markup_pct", 40), "Dealer markup %", 0, 300)
+    out["gst_pct"] = _number(data.get("gst_pct", 18), "GST %", 0, 50)
     out["updated_at"] = data.get("updated_at") or datetime.now().isoformat(timespec="seconds")
     return out
 

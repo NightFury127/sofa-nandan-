@@ -55,6 +55,14 @@ export function renderRates(sheet) {
       </tbody>
     </table>
 
+    <h3>Retail equivalent</h3>
+    <table class="rates-table">
+      <tbody>
+        <tr><th scope="row">Dealer markup<small>on the factory price</small></th><td>${num("dealer_markup_pct", sheet.dealer_markup_pct ?? 40, { max: 300, suffix: "%" })}</td></tr>
+        <tr><th scope="row">GST<small>on the showroom price</small></th><td>${num("gst_pct", sheet.gst_pct ?? 18, { max: 50, suffix: "%" })}</td></tr>
+      </tbody>
+    </table>
+
     <label class="rates-note">Note shown to staff<textarea name="note" rows="2" maxlength="300">${esc(sheet.note || "")}</textarea></label>
 
     <div class="rates-actions">

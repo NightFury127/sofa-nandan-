@@ -194,9 +194,24 @@ export function renderResults(data) {
     ["Subtotal", q.subtotal], [`Overhead${pct(q.overhead_pct)}`, q.overhead],
     ["Cost + overhead", q.cost_after_overhead], [`Profit${pct(q.profit_pct)}`, q.profit],
   ];
-  $("quote-rows").innerHTML = costRows.map(([k, v]) => `<div><span>${esc(k)}</span><b>₹${fmt(v)}</b></div>`).join("");
+  const rowsHtml = rows => rows.map(([k, v]) => `<div><span>${esc(k)}</span><b>₹${fmt(v)}</b></div>`).join("");
+  $("quote-rows").innerHTML = rowsHtml(costRows);
+
+  // Retail equivalent (quotes saved before it existed don't have it)
+  const hasRetail = q.retail_price_incl_gst !== undefined && q.retail_price_incl_gst !== null;
+  $("retail-label").hidden = !hasRetail;
+  $("retail-estimate").hidden = !hasRetail;
+  $("retail-rows").innerHTML = hasRetail ? rowsHtml([
+    ["Factory price", q.final_quotation_price],
+    [`Dealer markup${pct(q.dealer_markup_pct)}`, q.retail_price_excl_gst - q.final_quotation_price],
+    [`GST${pct(q.gst_pct)}`, q.retail_gst],
+    ["Showroom price incl. GST", q.retail_price_incl_gst],
+  ]) : "";
+  if (hasRetail) {
+    $("retail-estimate").textContent = `≈ ₹${fmt(q.retail_price_incl_gst)} in a showroom, incl. ${Number(q.gst_pct)}% GST`;
+  }
   const materials = q.fabric_grade_label ? `${q.fabric_grade_label} · ${q.foam_grade_label}. ` : "";
-  $("quote-terms").textContent = `${materials}Prices are exclusive of GST. Order quantities include a cutting allowance.`;
+  $("quote-terms").textContent = `${materials}The factory price excludes GST. The retail equivalent is an estimate of what a showroom would charge for the same sofa. Order quantities include a cutting allowance.`;
 
   showSizeOptions(data);
 

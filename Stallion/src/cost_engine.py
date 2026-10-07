@@ -3,6 +3,7 @@ import math
 import json
 import pandas as pd
 
+from bom_geometry import geometry_bom
 from pricing import load_pricing, ui_type_key, PricingError
 
 # Units bought whole: quantities are rounded up after scaling and wastage
@@ -286,7 +287,32 @@ class SofaCostEngine:
     # ---------------------------------------------------
     def generate_scaled_bom(self, length_mm, width_mm, height_mm, sofa_type="3-seater"):
         """
-        master_template_spec.csv now has columns like '3-Seater - Qty', '1-Seater - Qty'
+        Net material quantities worked out from the sofa's geometry and the
+        construction spec in bom_geometry.py (frame members, foam volume x
+        density, upholstered area / fabric roll width, ...).
+
+        base_qty is the same calculation at the type's base dimensions, so the
+        report still shows how far this size is from the standard one.
+        """
+        scales = self.compute_scale_factors(length_mm, width_mm, height_mm, sofa_type)
+        type_key = normalize_sofa_type(sofa_type)
+        base = {r["component_group"]: r["new_qty"]
+                for r in geometry_bom(type_key, scales["L0"], scales["W0"], scales["H0"])}
+        rows = geometry_bom(type_key, length_mm, width_mm, height_mm)
+        bom_df = pd.DataFrame([{
+            "component_group": r["component_group"],
+            "base_qty":        base.get(r["component_group"], 0.0),
+            "unit":            r["unit"],
+            "scaling_rule":    "geometry",
+            "new_qty":         r["new_qty"],
+            "notes":           r["notes"],
+        } for r in rows])
+        return scales, bom_df
+
+    def generate_template_scaled_bom(self, length_mm, width_mm, height_mm, sofa_type="3-seater"):
+        """
+        Previous method, kept for reference: fixed per-type quantities from
+        master_template_spec.csv scaled by size ratios. Not used for quotes.
         """
         scales = self.compute_scale_factors(length_mm, width_mm, height_mm, sofa_type)
 
@@ -495,7 +521,8 @@ class SofaCostEngine:
           rate      = material rate x grade multiplier (fabric / foam groups)
           labour and finishing are fixed amounts per sofa type
           overhead % on the subtotal, then profit % on cost + overhead
-        Prices are exclusive of GST.
+        final_quotation_price is the factory price, exclusive of GST; the
+        retail_* fields add the dealer markup and GST from the rate sheet.
         """
         if self.pricing is None:
             self.pricing = load_pricing()
@@ -548,6 +575,12 @@ class SofaCostEngine:
         profit = cost_after_overhead * (profit_pct / 100.0)
         final_price = cost_after_overhead + profit
 
+        # Retail-equivalent: what a showroom would ask for the same sofa
+        dealer_markup_pct = float(pricing.get("dealer_markup_pct", 40))
+        gst_pct = float(pricing.get("gst_pct", 18))
+        retail_excl_gst = final_price * (1 + dealer_markup_pct / 100.0)
+        retail_gst = retail_excl_gst * (gst_pct / 100.0)
+
         summary = {
             "material_cost": material_cost,
             "labor_cost": labor_cost,
@@ -559,6 +592,11 @@ class SofaCostEngine:
             "profit": profit,
             "profit_pct": profit_pct,
             "final_quotation_price": final_price,
+            "dealer_markup_pct": dealer_markup_pct,
+            "retail_price_excl_gst": retail_excl_gst,
+            "gst_pct": gst_pct,
+            "retail_gst": retail_gst,
+            "retail_price_incl_gst": retail_excl_gst + retail_gst,
             "fabric_grade": chosen["fabric"],
             "foam_grade": chosen["foam"],
             "fabric_grade_label": pricing["grades"]["fabric"][chosen["fabric"]]["label"],

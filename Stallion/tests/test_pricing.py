@@ -45,8 +45,46 @@ def test_plywood_responds_to_depth():
 
 def test_whole_unit_items_are_rounded_up():
     cost, _ = _cost("3-seater", 2310, 900, 850)
-    for name in ("Thread", "Springs", "Hardware", "Legs"):
+    for name in ("Springs", "Legs", "Sundries"):
         assert _qty(cost, name, "new_qty") == int(_qty(cost, name, "new_qty"))
+
+
+def test_geometry_quantities_match_industry_rules_of_thumb():
+    # Standard 3-seater: Indian makers use ~10-12 m of 54" fabric and
+    # 10-15 kg of foam; a 6" 40D seat over 3 seats is ~7-9 kg.
+    cost, _ = _cost("3-seater", 2100, 900, 850)
+    assert 9 <= _qty(cost, "Fabric") <= 13
+    assert 7 <= _qty(cost, "Seat Foam") <= 9
+    assert 10 <= sum(_qty(cost, n) for n in ("Seat Foam", "Back Foam", "Padding Foam")) <= 15
+    assert _qty(cost, "Sundries") == 3          # one kit per seat
+
+
+def test_bigger_sofas_need_more_material_and_cost_more():
+    small, s_sum = _cost("3-seater", 1900, 900, 850)
+    large, l_sum = _cost("3-seater", 2400, 900, 850)
+    for name in ("Wood Frame", "Fabric", "Seat Foam", "Springs"):
+        assert _qty(large, name) > _qty(small, name)
+    assert l_sum["final_quotation_price"] > s_sum["final_quotation_price"]
+    _, l_shape = _cost("l-shape", 2700, 975, 850)
+    _, four = _cost("4-seater", 2700, 950, 850)
+    assert l_shape["material_cost"] > four["material_cost"]
+
+
+def test_retail_price_adds_dealer_markup_then_gst():
+    _, s = _cost("3-seater", 2100, 900, 850)
+    sheet = pricing.load_pricing()
+    retail = s["final_quotation_price"] * (1 + sheet["dealer_markup_pct"] / 100)
+    assert s["retail_price_excl_gst"] == pytest.approx(retail)
+    assert s["retail_gst"] == pytest.approx(retail * sheet["gst_pct"] / 100)
+    assert s["retail_price_incl_gst"] == pytest.approx(retail * (1 + sheet["gst_pct"] / 100))
+
+
+def test_rate_sheet_without_retail_fields_gets_defaults():
+    sheet = pricing.load_pricing()
+    for field in ("dealer_markup_pct", "gst_pct"):
+        sheet.pop(field)
+    clean = pricing.validate_pricing(sheet)
+    assert clean["dealer_markup_pct"] == 40 and clean["gst_pct"] == 18
 
 
 def test_wastage_is_added_to_order_quantity():
