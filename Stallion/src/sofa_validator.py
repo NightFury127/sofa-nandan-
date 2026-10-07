@@ -413,6 +413,35 @@ def _save_analysis(analysis, request_folder):
 # PUBLIC API
 # ---------------------------------------------------------------------------
 
+def detect_type(image_path) -> dict:
+    """
+    Quick check for the quote form, run as soon as a photo is chosen: is there
+    a sofa, and which type does it look like? Same models as validate_sofa,
+    but nothing is written to disk.
+
+    Returns {"sofa_found", "sofa_type", "confidence", "confident"}; confident
+    means confidence >= TYPE_CONFIDENCE_THRESHOLD, i.e. worth pre-selecting.
+    """
+    detector = _shared_detector()
+    with _model_lock:
+        detections = detector.detect(image_path)
+    if not detections:
+        return {"sofa_found": False, "sofa_type": None, "confidence": None, "confident": False}
+
+    classifier = get_type_classifier()
+    if classifier is None:
+        sofa_type, conf = _classify_type(detections), None
+    else:
+        with _model_lock:
+            sofa_type, conf = classifier.predict(image_path)
+    return {
+        "sofa_found": True,
+        "sofa_type":  sofa_type,
+        "confidence": conf,
+        "confident":  conf is not None and conf >= TYPE_CONFIDENCE_THRESHOLD,
+    }
+
+
 def validate_sofa(image_path, request_folder, detector=None):
     """
     Run Phase 3 sofa validation.

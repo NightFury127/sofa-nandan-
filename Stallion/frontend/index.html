@@ -182,7 +182,7 @@
       <div class="section-index">03 / GET A QUOTE</div>
       <div class="section-heading">
         <h2 id="configure-title">Bring us<br><em>the sofa.</em></h2>
-        <p>Upload a photo, choose the type and enter three dimensions. Your quote, drawings and 3D model are ready in under a minute.</p>
+        <p>Upload a photo and we recognise the sofa type, then enter three dimensions within that type's range. Your quote, drawings and 3D model are ready in under a minute.</p>
       </div>
 
       <form id="project-form" class="studio-form">
@@ -243,6 +243,11 @@
                 <svg viewBox="0 0 160 70" aria-hidden="true"><path d="M18 52V28Q18 18 29 18H92Q103 18 103 29V52H145V62H18ZM32 35H92M32 35V52M58 35V52M84 35V52M103 52V31Q103 22 113 22H132Q142 22 142 32V52"/></svg>
                 <b>L SHAPE</b>
               </button>
+            </div>
+            <p class="detect-note" id="detect-note" role="status" hidden></p>
+            <div class="type-preview" id="type-preview" hidden>
+              <div class="type-preview-stage" id="type-preview-stage"></div>
+              <span class="mono type-preview-caption" id="type-preview-caption"></span>
             </div>
           </div>
 
@@ -367,9 +372,10 @@
         </div>
 
         <div class="result-card quote-result">
-          <span class="mono">FINAL QUOTATION</span>
+          <span class="mono">FACTORY PRICE</span>
           <strong id="final-price">₹—</strong>
-          <span>INCLUDING OVERHEAD & PROFIT</span>
+          <span>INCLUDING OVERHEAD & PROFIT · EXCL. GST</span>
+          <p class="retail-estimate" id="retail-estimate" hidden></p>
           <a class="pdf-button" id="pdf-btn" href="#" download>
             <span>DOWNLOAD QUOTE PDF</span><b aria-hidden="true">↓</b>
           </a>
@@ -390,6 +396,8 @@
         <div>
           <div class="result-label">COST STRUCTURE</div>
           <div class="cost-list" id="quote-rows"></div>
+          <div class="result-label retail-label" id="retail-label" hidden>RETAIL EQUIVALENT</div>
+          <div class="cost-list" id="retail-rows"></div>
           <p class="quote-terms" id="quote-terms"></p>
 
           <div class="result-label size-label">PRICE VS SIZE</div>

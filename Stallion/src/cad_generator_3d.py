@@ -261,6 +261,11 @@ def _gltf_ready_copy(scene: trimesh.Scene) -> trimesh.Scene:
     return out
 
 
+def glb_bytes(scene: trimesh.Scene) -> bytes:
+    """The scene as an in-memory GLB (same conventions as export_3d_model)."""
+    return _gltf_ready_copy(scene).export(file_type="glb")
+
+
 def export_3d_model(scene: trimesh.Scene, output_dir: str, request_id: str) -> dict:
     """
     Export the scene to GLB and OBJ next to the 2D CAD files, coloured and in

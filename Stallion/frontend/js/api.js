@@ -69,6 +69,18 @@ export function getQuote(requestId) {
   return request(`/api/quotes/${encodeURIComponent(requestId)}`);
 }
 
+// Which sofa type is in the photo? Runs as soon as a photo is chosen.
+export function detectType(file) {
+  const fd = new FormData();
+  fd.append("image", file);
+  return request("/api/detect-type", { method: "POST", body: fd }, 60_000);
+}
+
+// URL of a GLB of this type at this size, for the live preview in the form.
+export function modelPreviewUrl(sofaType, width, depth, height) {
+  return `/api/model-preview?${new URLSearchParams({ sofa_type: sofaType, width, depth, height })}`;
+}
+
 export function getSizeOptions({ sofaType, width, depth, height, fabricGrade, foamGrade }) {
   const q = new URLSearchParams({
     sofa_type: sofaType, width, depth, height,

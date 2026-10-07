@@ -1,6 +1,10 @@
 // Project input: photo upload, sofa type picker, dimensions with per-type
 // range checks (limits come from /api/config, i.e. master_dimensions.csv).
-import { $, esc } from "./util.js";
+// Choosing a photo runs type detection: a confident result pre-selects the
+// type (the customer can still change it), and a live 3D model of the chosen
+// type follows the dimensions as they are typed.
+import { $, esc, TYPE_LABELS } from "./util.js";
+import { detectType, modelPreviewUrl } from "./api.js";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
@@ -23,10 +27,61 @@ export function initForm({ config, onSubmit }) {
 
   let file = null;
   let selectedType = null;
+  let detected = null;      // last detection result for the current photo
+  let userPicked = false;   // the customer chose a type themselves for this photo
+  let detectRun = 0;        // ignores answers for a photo that was since replaced
 
   // ── Photo ──────────────────────────────────────────────────────────────────
   const photoError = $("photo-error");
   const setPhotoError = msg => { photoError.textContent = msg || ""; photoError.hidden = !msg; };
+
+  const note = $("detect-note");
+  function setNote(html, warning = false) {
+    note.innerHTML = html || "";
+    note.hidden = !html;
+    note.classList.toggle("is-warning", warning);
+  }
+  const label = t => esc(TYPE_LABELS[t] || t);
+
+  async function runDetection(f) {
+    const run = ++detectRun;
+    detected = null;
+    setNote("Recognising the sofa type…");
+    let result;
+    try {
+      result = await detectType(f);
+    } catch {
+      if (run === detectRun) setNote("We couldn't recognise the type automatically. Please choose it below.", true);
+      return;
+    }
+    if (run !== detectRun) return;
+    detected = result;
+    if (!result.sofa_found) {
+      setNote("We couldn't find a sofa in this photo. Try a clearer photo of the whole sofa, or the quote will be rejected.", true);
+      return;
+    }
+    const pct = result.confidence != null ? ` (${Math.round(result.confidence * 100)}% sure)` : "";
+    const btn = typeButtons.find(b => b.dataset.type === result.sofa_type);
+    if (result.confident && btn) {
+      if (!userPicked) selectType(btn, false, "detect");
+      describeChoice();
+    } else if (btn) {
+      setNote(`This looks like a <b>${label(result.sofa_type)}</b>${pct}, but we're not sure. Please choose the type below.`, true);
+    } else {
+      setNote("We couldn't tell the sofa type from this photo. Please choose it below.", true);
+    }
+  }
+
+  // Note under the picker: what was detected, and whether the choice differs
+  function describeChoice() {
+    if (!detected?.sofa_found || !detected.confident) return;
+    const pct = detected.confidence != null ? ` (${Math.round(detected.confidence * 100)}% sure)` : "";
+    if (selectedType === detected.sofa_type) {
+      setNote(`Detected from your photo: <b>${label(detected.sofa_type)}</b>${pct}. The sizes below are for this type. Not right? Pick another type.`);
+    } else if (selectedType) {
+      setNote(`Using your choice: <b>${label(selectedType)}</b>. The photo looked like a ${label(detected.sofa_type)}${pct}.`);
+    }
+  }
 
   function setFile(f) {
     if (!f) return;
@@ -40,7 +95,9 @@ export function initForm({ config, onSubmit }) {
     $("preview-img").src = URL.createObjectURL(f);
     $("preview-stage").classList.add("show");
     $("upload-status").textContent = `Photo selected: ${f.name}`;
+    userPicked = false;
     update();
+    runDetection(f);
   }
 
   ["dragover", "dragenter"].forEach(evt => uploadZone.addEventListener(evt, e => {
@@ -53,8 +110,9 @@ export function initForm({ config, onSubmit }) {
   imageInput.addEventListener("change", () => setFile(imageInput.files[0]));
 
   // ── Sofa type: a radio group with arrow-key navigation ─────────────────────
-  function selectType(btn, focus = false) {
+  function selectType(btn, focus = false, source = "user") {
     selectedType = btn.dataset.type;
+    if (source === "user") userPicked = true;
     typeButtons.forEach(b => {
       const on = b === btn;
       b.classList.toggle("active", on);
@@ -65,7 +123,55 @@ export function initForm({ config, onSubmit }) {
     $("type-required").hidden = true;
     showRanges();
     update();
+    describeChoice();
+    showPreview();
   }
+
+  // ── Live 3D preview of the chosen type ────────────────────────────────────
+  let modelViewerLoad = null;
+  let previewTimer = null;
+  let previewSrc = "";
+
+  // The typed size if it's complete and in range, else the type's standard size
+  function previewDims() {
+    const lim = limits[selectedType];
+    const typed = FIELDS.map(f => Number($(f.input).value));
+    const inRange = lim && typed.every((v, i) => v >= lim[FIELDS[i].key][0] && v <= lim[FIELDS[i].key][1]);
+    return inRange ? { dims: typed, standard: false } : { dims: lim ? lim.base : null, standard: true };
+  }
+
+  async function showPreview() {
+    const box = $("type-preview");
+    const { dims, standard } = previewDims();
+    if (!selectedType || !dims) { box.hidden = true; return; }
+    box.hidden = false;
+    const [w, d, h] = dims;
+    $("type-preview-caption").textContent =
+      `${TYPE_LABELS[selectedType] || selectedType} · ${w} × ${d} × ${h} MM${standard ? " (STANDARD SIZE)" : ""} · DRAG TO ROTATE`;
+    const src = modelPreviewUrl(selectedType, w, d, h);
+    if (src === previewSrc) return;
+    previewSrc = src;
+    try {
+      modelViewerLoad ??= import("/static/vendor/model-viewer.min.js");
+      await modelViewerLoad;
+    } catch {
+      box.hidden = true;   // 3D not available in this browser; the form still works
+      return;
+    }
+    let mv = $("type-preview-stage").querySelector("model-viewer");
+    if (!mv) {
+      mv = document.createElement("model-viewer");
+      mv.setAttribute("camera-controls", "");
+      mv.setAttribute("touch-action", "pan-y");
+      mv.setAttribute("shadow-intensity", "0.8");
+      mv.setAttribute("camera-orbit", "30deg 72deg auto");
+      mv.setAttribute("interaction-prompt", "none");
+      $("type-preview-stage").appendChild(mv);
+    }
+    mv.setAttribute("alt", `3D model of a ${TYPE_LABELS[selectedType] || "sofa"}`);
+    mv.setAttribute("src", src);
+  }
+  const schedulePreview = () => { clearTimeout(previewTimer); previewTimer = setTimeout(showPreview, 450); };
   typeButtons.forEach((btn, i) => {
     btn.tabIndex = i === 0 ? 0 : -1;
     btn.addEventListener("click", () => selectType(btn));
@@ -142,7 +248,7 @@ export function initForm({ config, onSubmit }) {
   }
 
   FIELDS.forEach(f => {
-    $(f.input).addEventListener("input", () => update(false));
+    $(f.input).addEventListener("input", () => { update(false); schedulePreview(); });
     $(f.input).addEventListener("blur", () => update(true));
   });
 
@@ -167,6 +273,12 @@ export function initForm({ config, onSubmit }) {
     reset() {
       file = null;
       selectedType = null;
+      detected = null;
+      userPicked = false;
+      detectRun++;
+      setNote("");
+      clearTimeout(previewTimer);
+      $("type-preview").hidden = true;
       imageInput.value = "";
       $("preview-stage").classList.remove("show");
       $("upload-status").textContent = "";

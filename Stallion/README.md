@@ -97,10 +97,11 @@ Then open the frontend in your browser at `http://localhost:8000/`.
 
 The web app (`frontend/index.html` + ES modules in `frontend/js/`) offers:
 - **Quote form** with per-type size ranges (from `master_dimensions.csv`, via `GET /api/config`), inline errors and photo guidance.
+- **Type detection on upload** (`POST /api/detect-type`): as soon as a photo is chosen the type classifier runs; a confident result (≥ 60%) pre-selects the type and its size ranges, which the customer can still change. A live **3D preview** of the chosen type (`GET /api/model-preview`) follows the dimensions as they are typed.
 - **Live progress** from the server (`GET /api/progress/{id}`) while the pipeline runs.
 - **Results** with the annotated photo, BOM, cost structure, CAD downloads and a rotatable **3D model** (`<model-viewer>`, bundled in `frontend/vendor/` so it works offline).
 - **Quote PDF** (`GET /api/quotes/{id}/pdf`), branded with SVCE and Stallion.
-- **Cost estimator** driven by the rate sheet `data/pricing/pricing.json`: material rates with a wastage % per material, fabric/foam grades (rate multipliers the customer picks in the form), fixed labour and finishing per sofa type, overhead and profit. Prices are exclusive of GST. Whole-unit items (pieces, cones) are rounded up.
+- **Cost estimator**: material quantities are worked out from the sofa's geometry and an assumed mid-range construction (`src/bom_geometry.py`: frame members, foam volume x density, fabric from panel area and roll width), then priced with the rate sheet `data/pricing/pricing.json` (researched Bengaluru market rates with wastage %, fabric/foam grades, labour and finishing per sofa type, overhead and profit). Each quote shows the factory price (excl. GST) and a retail-equivalent estimate (dealer markup + 18% GST). Sources and assumptions: [docs/08_COSTING.md](docs/08_COSTING.md).
 - **Rate editor** for staff (Staff → Rates, `GET/PUT /api/pricing`): every save is validated and the previous sheet is kept as `pricing.previous.json`.
 - **Price vs size** (`GET /api/size-options`): the price at ±100 mm on each dimension, at today's rates.
 - **Quote history** (`GET /api/quotes`) for staff. Set `STALLION_STAFF_KEY` on a shared server; staff enter it once per browser session. Without it, history only works from the server machine itself. Behind a reverse proxy every request looks local, so **always set the key there**.
@@ -133,8 +134,8 @@ The project is currently passing all tests:
 - Root-level validation scripts (`test_detector_fix_validation.py`, `test_dimension_estimator.py`, etc.) all pass.
 
 ## Known Issues & Limitations
-- **Data Placeholders**: The rate sheet (`data/pricing/pricing.json`) and BOM quantities are placeholders; set real rates in the staff rate editor. Prices are exclusive of GST.
-- **ML Models**: Training data lives outside git (`merged_sofa_dataset.zip` for the detector, `data/datasets/raw/` for the type classifier). 4-seater has only 3 photos and cannot be detected; 3-seater has only 9 test photos. Details and numbers in [docs/07_MODELS.md](docs/07_MODELS.md).
+- **Rates are researched, not quoted**: `data/pricing/pricing.json` holds researched market rates and an assumed construction spec, not the factory's supplier quotes. Replace them in the staff rate editor (see [docs/08_COSTING.md](docs/08_COSTING.md)).
+- **ML Models**: Training data lives outside git (`merged_sofa_dataset.zip` for the detector, `data/datasets/raw/` for the type classifier). The type classifier also uses hand-reviewed web room photos (gitignored); 4-seater is its weakest type on room photos. Details and numbers in [docs/07_MODELS.md](docs/07_MODELS.md).
 - **Frontend Dimension UX**: The API returns estimated dimensions, but the frontend (`frontend/index.html`) does not yet render the UI for users to confirm or override these heights.
 
 

@@ -1,6 +1,7 @@
 """API tests for /api/quote with the image pipeline and detector stubbed out."""
 
 import os
+import re
 import sys
 
 import pytest
@@ -131,6 +132,8 @@ def test_saved_quote_can_be_reopened_and_exported_as_pdf(client):
     assert pdf.status_code == 200
     assert pdf.headers["content-type"] == "application/pdf"
     assert pdf.content.startswith(b"%PDF")
+    # A full real BOM plus the retail estimate must still fit on one A4 page
+    assert len(re.findall(rb"/Type /Page\b(?!s)", pdf.content)) == 1
 
 
 def test_unknown_or_malformed_quote_id_is_404(client):
@@ -146,3 +149,42 @@ def test_quote_history_needs_staff_key(client, monkeypatch):
     assert client.get("/api/quotes", headers={"X-Staff-Key": "wrong"}).status_code == 403
     listed = client.get("/api/quotes", headers={"X-Staff-Key": "s3cret"}).json()["quotes"]
     assert any(q["request_id"] == request_id for q in listed)
+
+
+def _png_bytes():
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48), (200, 190, 170)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_detect_type_returns_ui_type_key(client, monkeypatch):
+    monkeypatch.setattr(api, "detect_type", lambda path: {
+        "sofa_found": True, "sofa_type": "4_seater_plus", "confidence": 0.93, "confident": True})
+    resp = client.post("/api/detect-type", files={"image": ("sofa.png", _png_bytes(), "image/png")})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["sofa_type"] == "4_seater_plus" and body["confident"] is True
+
+
+def test_detect_type_reports_no_sofa(client, monkeypatch):
+    monkeypatch.setattr(api, "detect_type", lambda path: {
+        "sofa_found": False, "sofa_type": None, "confidence": None, "confident": False})
+    body = client.post("/api/detect-type", files={"image": ("x.png", _png_bytes(), "image/png")}).json()
+    assert body["sofa_found"] is False and body["sofa_type"] is None
+
+
+def test_detect_type_rejects_non_images(client, monkeypatch):
+    monkeypatch.setattr(api, "detect_type", lambda path: pytest.fail("models must not run"))
+    resp = client.post("/api/detect-type", files={"image": ("x.jpg", b"not-a-real-image", "image/jpeg")})
+    assert resp.status_code == 400
+
+
+def test_model_preview_is_a_glb_and_checks_the_range(client):
+    ok = client.get("/api/model-preview", params={"sofa_type": "l_shape", "width": 2700, "depth": 975, "height": 850})
+    assert ok.status_code == 200
+    assert ok.headers["content-type"] == "model/gltf-binary"
+    assert ok.content[:4] == b"glTF"
+    bad = client.get("/api/model-preview", params={"sofa_type": "1_seater", "width": 2700, "depth": 975, "height": 850})
+    assert bad.status_code == 400

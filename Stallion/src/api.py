@@ -28,8 +28,11 @@ import json
 import time
 import shutil
 import secrets
+import tempfile
 import threading
 from pathlib import Path
+
+from PIL import Image as PILImage
 from datetime import datetime
 
 from fastapi import FastAPI, File, UploadFile, Form, Request, Header
@@ -49,14 +52,14 @@ OUTPUTS_DIR  = PROJECT_ROOT / "outputs"
 sys.path.insert(0, str(SRC_DIR))
 
 from image_processor        import process_image, ImageValidationError
-from sofa_validator         import validate_sofa, SofaValidationError, TYPE_CONFIDENCE_THRESHOLD
+from sofa_validator         import validate_sofa, detect_type, SofaValidationError, TYPE_CONFIDENCE_THRESHOLD
 from cost_engine            import SofaCostEngine, normalize_sofa_type
 from cad_generator          import SofaCADGenerator
-from cad_generator_3d       import build_sofa_mesh, export_3d_model, render_preview_image
+from cad_generator_3d       import build_sofa_mesh, export_3d_model, render_preview_image, glb_bytes
 from production_cad         import build_sofa_step_model
 from dimension_estimator_api import add_dimension_estimates_to_response
 from quote_pdf              import build_quote_pdf
-from pricing                import load_pricing, save_pricing, PricingError
+from pricing                import load_pricing, save_pricing, PricingError, ui_type_key
 from fastapi                import Body
 
 # ---------------------------------------------------------------------------
@@ -241,6 +244,58 @@ def get_config():
                    for group, options in grades.items()},
         "max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024),
     }
+
+
+@app.post("/api/detect-type")
+def detect_type_endpoint(image: UploadFile = File(...)):
+    """
+    Run as soon as the customer picks a photo: is there a sofa, and which type
+    is it? The form pre-selects the type (when confident) and shows that type's
+    size ranges. Nothing is saved.
+    """
+    content = image.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(content) > MAX_UPLOAD_BYTES:
+        return JSONResponse({"status": "error",
+                             "reason": f"Image too large. Maximum size is {MAX_UPLOAD_BYTES // (1024 * 1024)} MB."},
+                            status_code=413)
+    suffix = Path(image.filename or "").suffix.lower()
+    if suffix not in (".jpg", ".jpeg", ".png", ".webp"):
+        suffix = ".jpg"
+    fd, tmp = tempfile.mkstemp(suffix=suffix)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
+        try:
+            with PILImage.open(tmp) as im:
+                im.verify()
+        except Exception:
+            return JSONResponse({"status": "error", "reason": "That file isn't a readable image."}, status_code=400)
+        result = detect_type(tmp)
+    finally:
+        os.remove(tmp)
+    if result["sofa_type"]:
+        result["sofa_type"] = ui_type_key(result["sofa_type"])
+    return {"status": "ok", **result}
+
+
+@app.get("/api/model-preview")
+def model_preview(sofa_type: str, width: float, depth: float, height: float):
+    """
+    A 3D model (GLB) of the chosen type at the given size, for the live preview
+    in the quote form. Same geometry as the quote's model; nothing is saved.
+    """
+    engine = SofaCostEngine()
+    engine.load_data()
+    try:
+        _, bom_df = engine.generate_scaled_bom(width, depth, height, sofa_type)
+    except ValueError as exc:
+        return JSONResponse({"status": "error", "reason": str(exc)}, status_code=400)
+    bom = dict(zip(bom_df["component_group"], bom_df["new_qty"]))
+    scene = build_sofa_mesh(scaled_bom=bom,
+                            dimensions={"length_mm": width, "width_mm": depth, "height_mm": height},
+                            sofa_type=sofa_type)
+    return Response(glb_bytes(scene), media_type="model/gltf-binary",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/api/size-options")
