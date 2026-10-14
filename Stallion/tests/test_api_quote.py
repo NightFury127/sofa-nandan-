@@ -168,6 +168,16 @@ def test_detect_type_returns_ui_type_key(client, monkeypatch):
     assert body["sofa_type"] == "4_seater_plus" and body["confident"] is True
 
 
+def test_detect_type_gives_the_second_guess_when_unsure(client, monkeypatch):
+    # A real case: an angled 3-seater read as 51% L-shape / 45% 3-seater
+    monkeypatch.setattr(api, "detect_type", lambda path: {
+        "sofa_found": True, "sofa_type": "l_shape", "confidence": 0.51, "confident": False,
+        "runner_up": {"sofa_type": "3-seater", "confidence": 0.45}})
+    body = client.post("/api/detect-type", files={"image": ("sofa.png", _png_bytes(), "image/png")}).json()
+    assert body["confident"] is False
+    assert body["runner_up"] == {"sofa_type": "3_seater", "confidence": 0.45}
+
+
 def test_detect_type_reports_no_sofa(client, monkeypatch):
     monkeypatch.setattr(api, "detect_type", lambda path: {
         "sofa_found": False, "sofa_type": None, "confidence": None, "confident": False})

@@ -66,7 +66,9 @@ export function initForm({ config, onSubmit }) {
       if (!userPicked) selectType(btn, false, "detect");
       describeChoice();
     } else if (btn) {
-      setNote(`This looks like a <b>${label(result.sofa_type)}</b>${pct}, but we're not sure. Please choose the type below.`, true);
+      const alt = result.runner_up;
+      const or = alt ? ` or a <b>${label(alt.sofa_type)}</b> (${Math.round(alt.confidence * 100)}%)` : "";
+      setNote(`This looks like a <b>${label(result.sofa_type)}</b>${pct}${or}, but we're not sure. Please choose the type below.`, true);
     } else {
       setNote("We couldn't tell the sofa type from this photo. Please choose it below.", true);
     }

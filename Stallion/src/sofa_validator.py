@@ -419,27 +419,37 @@ def detect_type(image_path) -> dict:
     a sofa, and which type does it look like? Same models as validate_sofa,
     but nothing is written to disk.
 
-    Returns {"sofa_found", "sofa_type", "confidence", "confident"}; confident
-    means confidence >= TYPE_CONFIDENCE_THRESHOLD, i.e. worth pre-selecting.
+    Returns {"sofa_found", "sofa_type", "confidence", "confident", "runner_up"};
+    confident means confidence >= TYPE_CONFIDENCE_THRESHOLD, i.e. worth
+    pre-selecting; runner_up is the second most likely type {sofa_type,
+    confidence}, shown when the model isn't sure.
     """
     detector = _shared_detector()
     with _model_lock:
         detections = detector.detect(image_path)
     if not detections:
-        return {"sofa_found": False, "sofa_type": None, "confidence": None, "confident": False}
+        return {"sofa_found": False, "sofa_type": None, "confidence": None, "confident": False,
+                "runner_up": None}
 
     classifier = get_type_classifier()
+    runner_up = None
     if classifier is None:
         sofa_type, conf = _classify_type(detections), None
     else:
         with _model_lock:
-            sofa_type, conf = classifier.predict(image_path)
+            ranked = classifier.predict_ranked(image_path)
+        (sofa_type, conf), runner_up = ranked[0], _runner_up(ranked)
     return {
         "sofa_found": True,
         "sofa_type":  sofa_type,
         "confidence": conf,
         "confident":  conf is not None and conf >= TYPE_CONFIDENCE_THRESHOLD,
+        "runner_up":  runner_up,
     }
+
+
+def _runner_up(ranked):
+    return {"sofa_type": ranked[1][0], "confidence": ranked[1][1]} if len(ranked) > 1 else None
 
 
 def validate_sofa(image_path, request_folder, detector=None):
@@ -484,7 +494,7 @@ def validate_sofa(image_path, request_folder, detector=None):
     # Classify sofa type
     sofa_type = _classify_type(detections)
     detector_type = sofa_type
-    type_source, type_confidence = "detector", None
+    type_source, type_confidence, type_runner_up = "detector", None, None
 
     # The whole-image type classifier is far more accurate than the detector's
     # type rules on general sofas (95.4% vs 47.2% on the held-out catalogue
@@ -498,7 +508,8 @@ def validate_sofa(image_path, request_folder, detector=None):
     classifier = get_type_classifier()
     if classifier is not None:
         with _model_lock:
-            sofa_type, type_confidence = classifier.predict(image_path)
+            ranked = classifier.predict_ranked(image_path)
+        (sofa_type, type_confidence), type_runner_up = ranked[0], _runner_up(ranked)
         type_source = "classifier"
 
     best      = detections[0]
@@ -545,6 +556,8 @@ def validate_sofa(image_path, request_folder, detector=None):
         "components":           best.get("components", []),
         "type_source":          type_source,
         "type_confidence":      type_confidence,
+        "type_confident":       type_confidence is None or type_confidence >= TYPE_CONFIDENCE_THRESHOLD,
+        "type_runner_up":       type_runner_up,
         "detector_type":        detector_type,
     }
     if "polygon" in best:

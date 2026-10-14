@@ -22,8 +22,12 @@ class SofaTypeClassifier:
 
     def predict(self, image_path: str):
         """Return (sofa_type, confidence) for the image."""
+        return self.predict_ranked(image_path)[0]
+
+    def predict_ranked(self, image_path: str, k: int = 2):
+        """The k most likely types, best first: [(sofa_type, confidence), ...]."""
         probs = self._model(image_path, verbose=False)[0].probs
-        return self._model.names[int(probs.top1)], round(float(probs.top1conf), 4)
+        return [(self._model.names[int(i)], round(float(probs.data[int(i)]), 4)) for i in probs.top5[:k]]
 
 
 def get_type_classifier():

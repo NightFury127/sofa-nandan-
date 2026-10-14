@@ -275,6 +275,8 @@ def detect_type_endpoint(image: UploadFile = File(...)):
         os.remove(tmp)
     if result["sofa_type"]:
         result["sofa_type"] = ui_type_key(result["sofa_type"])
+    if result.get("runner_up"):
+        result["runner_up"]["sofa_type"] = ui_type_key(result["runner_up"]["sofa_type"])
     return {"status": "ok", **result}
 
 

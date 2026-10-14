@@ -185,7 +185,12 @@ async function show3d(data) {
 // ── Results ──────────────────────────────────────────────────────────────────
 export function renderResults(data) {
   const sa = data.sofa_analysis || {};
-  $("detected-type").textContent = TYPE_LABELS[sa.predicted_type] || sa.predicted_type || "SOFA";
+  // When the model isn't sure, show its two best guesses rather than one answer
+  const typeName = t => TYPE_LABELS[t] || t;
+  const unsure = sa.type_confident === false && sa.type_runner_up;
+  $("detected-type").textContent = unsure
+    ? `${typeName(sa.predicted_type)} OR ${typeName(sa.type_runner_up.sofa_type)}?`
+    : typeName(sa.predicted_type) || "SOFA";
   const conf = Math.round((sa.type_confidence ?? sa.confidence ?? 0) * 100);
   $("conf-label").textContent = conf + "%";
   $("conf-fill").style.width = "0";

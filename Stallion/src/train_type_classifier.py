@@ -35,7 +35,8 @@ RUNS_DIR     = PROJECT_ROOT / "outputs" / "training_runs"
 MIN_CLASS_FRACTION = 0.5
 
 
-def build_training_copy(extra_train=None, dataset_dir: Path = DATASET_DIR) -> Path:
+def build_training_copy(extra_train=None, dataset_dir: Path = DATASET_DIR,
+                        balance: float = MIN_CLASS_FRACTION) -> Path:
     """
     Copy train/ (plus any extra_train/<type>/ photos, e.g. room composites from
     augment_type_dataset.py), oversample small types, and copy val/ unchanged.
@@ -55,7 +56,7 @@ def build_training_copy(extra_train=None, dataset_dir: Path = DATASET_DIR) -> Pa
                 shutil.copy2(f, TRAIN_DIR / "train" / d.name / f.name)
 
     counts = {d.name: len(list((TRAIN_DIR / "train" / d.name).iterdir())) for d in class_dirs}
-    target = math.ceil(max(counts.values()) * MIN_CLASS_FRACTION)
+    target = math.ceil(max(counts.values()) * balance)
 
     for d in class_dirs:
         dst = TRAIN_DIR / "train" / d.name
@@ -71,10 +72,10 @@ def build_training_copy(extra_train=None, dataset_dir: Path = DATASET_DIR) -> Pa
 
 
 def train(base_model: str, epochs: int, img_size: int, batch: int, device: str, extra_train=None,
-          dataset_dir: Path = DATASET_DIR):
+          dataset_dir: Path = DATASET_DIR, balance: float = MIN_CLASS_FRACTION):
     from ultralytics import YOLO
 
-    data_dir = build_training_copy(extra_train, dataset_dir)
+    data_dir = build_training_copy(extra_train, dataset_dir, balance)
     run_name = f"type_classifier_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     model = YOLO(base_model)
@@ -111,5 +112,7 @@ if __name__ == "__main__":
     ap.add_argument("--extra-train", help="Extra <dir>/<type>/ training photos (e.g. room composites)")
     ap.add_argument("--dataset", type=Path, default=DATASET_DIR,
                     help="Split to train on (default processed/sofa_types; v2 with room photos: processed/sofa_types_v2)")
+    ap.add_argument("--balance", type=float, default=MIN_CLASS_FRACTION,
+                    help="Oversample each type up to this fraction of the largest (default 0.5; 1.0 = equal)")
     args = ap.parse_args()
-    train(args.model, args.epochs, args.img, args.batch, args.device, args.extra_train, args.dataset)
+    train(args.model, args.epochs, args.img, args.batch, args.device, args.extra_train, args.dataset, args.balance)
