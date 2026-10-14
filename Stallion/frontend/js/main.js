@@ -16,7 +16,10 @@ const views = {
   error:      () => [$("reject-section")],
 };
 
+let current = "form";
+
 function show(view) {
+  current = view;
   for (const [name, els] of Object.entries(views)) {
     els().forEach(el => {
       const on = name === view;
@@ -83,6 +86,15 @@ async function main() {
   $("retry-btn").addEventListener("click", () => {
     show("form");
     focusHeading(document.querySelector("#configure h2"));
+  });
+
+  // The "Get a quote" links (menu, hero, footer) point at the form, which is
+  // hidden while results or an error are shown: bring it back first — fresh
+  // after a finished quote, as entered after an error — then let the link scroll.
+  document.addEventListener("click", e => {
+    if (!e.target.closest('a[href="#configure"]')) return;
+    if (current === "results") form.reset();
+    if (current === "results" || current === "error") show("form");
   });
 
   document.addEventListener("mousemove", e => {
