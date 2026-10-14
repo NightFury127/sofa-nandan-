@@ -9,6 +9,9 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
 import trimesh
 
+from cost_engine import normalize_sofa_type
+from sofa_interior import build_interior_scene, layer_of
+
 # ---------------------------------------------------------------------------
 # Schema alias map — maps legacy BOM component names to schema component IDs
 # and vice-versa so _lookup_qty works with both the CSV-based BOM and the
@@ -92,20 +95,18 @@ def _lookup_qty(scaled_bom, *names):
     return 0.0
 
 
-SEATS_BY_TYPE = {"1_seater": 1, "2_seater": 2, "3_seater": 3, "4_seater_plus": 4, "l_shape": 3}
-
-
-def _clamp(value, lo, hi):
-    return max(lo, min(hi, value))
-
-
-def build_sofa_mesh(scaled_bom: dict, dimensions: dict, sofa_type: str = "3_seater") -> trimesh.Scene:
+def build_sofa_mesh(scaled_bom: dict, dimensions: dict, sofa_type: str = "3_seater",
+                    exploded: bool = False) -> trimesh.Scene:
     """
-    Build a primitive-based 3D sofa from the same scaled BOM and dimensions
-    used in the cost engine. The overall footprint is exactly length x width
-    x height (mm; z up, front of the sofa towards -y). Parts appear only when
-    the BOM contains them; seat/back cushions are split per seat, and an
-    L-shape gets a chaise extending forward on the right.
+    Build the 3D sofa with its internal construction (sofa_interior.py): frame,
+    plywood, springs, webbing, foam and fabric, laid out from the same
+    construction spec and counts the quote is priced from. The footprint is
+    exactly length x width (plus the chaise on an L-shape) and the height is
+    height (mm; z up, front of the sofa towards -y). exploded=True lifts each
+    layer clear of the one inside it.
+
+    scaled_bom is no longer needed (the quantities come from the construction
+    spec); it is accepted so existing callers keep working.
     """
     if not isinstance(dimensions, dict):
         raise ValueError("dimensions must be a dictionary with length_mm/width_mm/height_mm")
@@ -117,113 +118,26 @@ def build_sofa_mesh(scaled_bom: dict, dimensions: dict, sofa_type: str = "3_seat
     if length <= 0 or width <= 0 or height <= 0:
         raise ValueError("Dimensions must all be positive values")
 
-    scene = trimesh.Scene()
-
-    # Use the scaled BOM quantities to control major structural pieces. These are
-    # not rederived from a separate template; they are simply read from the already
-    # scaled quote output.  Both legacy names and schema component IDs are accepted
-    # via the alias-aware _lookup_qty().
-    leg_qty       = max(4, int(round(_lookup_qty(scaled_bom, "legs", "leg") or 4)))
-    seat_foam_qty = _lookup_qty(scaled_bom, "seat foam", "seat_foam")
-    back_foam_qty = _lookup_qty(scaled_bom, "back foam", "back_foam")
-    wood_qty      = _lookup_qty(scaled_bom, "wood frame", "wood_frame",
-                                "seat_rail_front", "seat_rail_back")
-    plywood_qty   = _lookup_qty(scaled_bom, "plywood", "seat_deck_board")
-    arm_qty       = _lookup_qty(scaled_bom, "handle frame", "handle_frame",
-                                "armrest", "arm rest")
-
-    def add_span(name, x0, x1, y0, y1, z0, z1):
-        """Add an axis-aligned box spanning [x0,x1] x [y0,y1] x [z0,z1]."""
-        mesh = trimesh.creation.box(extents=[x1 - x0, y1 - y0, z1 - z0])
-        mesh.apply_translation([(x0 + x1) / 2.0, (y0 + y1) / 2.0, (z0 + z1) / 2.0])
-        scene.add_geometry(mesh, geom_name=name)
-        return mesh
-
-    L, W, H = length, width, height
-    has_arms = wood_qty > 0 or arm_qty > 0
-    n_seats  = SEATS_BY_TYPE.get(str(sofa_type).lower().replace("-", "_"), 3)
-
-    leg_h    = _clamp(H * 0.11, 60.0, 140.0)
-    base_h   = _clamp(H * 0.20, 110.0, 220.0)            # frame/base above the legs
-    cush_h   = _clamp(H * 0.13, 80.0, 160.0)             # seat cushion thickness
-    arm_w    = _clamp(L * 0.09, 90.0, 220.0) if has_arms else 0.0
-    back_d   = _clamp(W * 0.20, 110.0, 260.0)            # back frame depth
-    bcush_d  = _clamp(W * 0.15, 90.0, 190.0)             # back cushion depth
-    gap      = 12.0                                      # between cushions
-    seat_z0  = leg_h + base_h
-    seat_top = seat_z0 + cush_h
-    arm_top  = _clamp(H * 0.72, seat_top + 120.0, H - 40.0)
-    x_in0, x_in1 = -L / 2.0 + arm_w, L / 2.0 - arm_w      # between the arms
-    front, back = -W / 2.0, W / 2.0
-
-    # Structure
-    add_span("seat_base", x_in0, x_in1, front, back, leg_h, seat_z0)
-    add_span("backrest", -L / 2.0, L / 2.0, back - back_d, back, leg_h, H)
-    if has_arms:
-        add_span("left_armrest", -L / 2.0, x_in0, front, back, leg_h, arm_top)
-        add_span("right_armrest", x_in1, L / 2.0, front, back, leg_h, arm_top)
-    if plywood_qty > 0:   # seat deck, inside the base
-        add_span("plywood_core", x_in0 + 30, x_in1 - 30, front + 30, back - back_d - 10,
-                 seat_z0 - 45, seat_z0 - 15)
-
-    # Cushions, one per seat
-    seat_w = (x_in1 - x_in0 - gap * (n_seats - 1)) / n_seats
-    for i in range(n_seats):
-        x0 = x_in0 + i * (seat_w + gap)
-        suffix = "" if n_seats == 1 else f"_{i + 1}"
-        if seat_foam_qty > 0:
-            add_span(f"seat_foam{suffix}", x0, x0 + seat_w, front + 15, back - back_d - bcush_d * 0.35,
-                     seat_z0, seat_top)
-        if back_foam_qty > 0:
-            add_span(f"back_foam{suffix}", x0, x0 + seat_w, back - back_d - bcush_d, back - back_d,
-                     seat_top, H - 50)
-
-    # L-shape: a chaise extending forward on the right-hand side
-    chaise = None
-    if str(sofa_type).lower().replace("-", "_") == "l_shape":
-        chaise_w = _clamp(L * 0.36, 650.0, 1000.0)
-        reach = _clamp(W * 0.80, 600.0, 900.0)
-        cx0, cx1 = x_in1 - chaise_w, x_in1
-        add_span("chaise_base", cx0, cx1, front - reach, front, leg_h, seat_z0)
-        if seat_foam_qty > 0:
-            add_span("chaise_foam", cx0, cx1, front - reach + 15, front - gap, seat_z0, seat_top)
-        if has_arms:
-            add_span("chaise_armrest", x_in1, L / 2.0, front - reach, front, leg_h, arm_top)
-        chaise = (cx0, cx1, front - reach)
-
-    # Legs at the corners of the footprint, extras spread along front and back
-    leg_w = _clamp(min(L, W) * 0.045, 35.0, 60.0)
-    inset = 40.0 + leg_w / 2.0
-    positions = [(-L / 2 + inset, front + inset), (L / 2 - inset, front + inset),
-                 (-L / 2 + inset, back - inset), (L / 2 - inset, back - inset)]
-    for k in range(max(4, leg_qty) - 4):
-        x = -L / 2 + L * (k // 2 + 1) / (max(4, leg_qty) // 2)
-        positions.append((min(x, L / 2 - inset), front + inset if k % 2 == 0 else back - inset))
-    if chaise:
-        cx0, cx1, cfront = chaise
-        positions += [(cx0 + inset, cfront + inset), (L / 2 - inset, cfront + inset)]
-    for idx, (x, y) in enumerate(positions):
-        add_span(f"leg_{idx + 1}", x - leg_w / 2, x + leg_w / 2, y - leg_w / 2, y + leg_w / 2, 0.0, leg_h)
-
-    return scene
+    return build_interior_scene(normalize_sofa_type(sofa_type), length, width, height, exploded=exploded)
 
 
-# Colours for the exported model (RGBA). Upholstered parts share the fabric
-# colour; the base/arms/back frame are a shade darker so cushions read clearly.
-_FABRIC  = [176, 168, 152, 255]
-_FRAME   = [146, 139, 126, 255]
-_WOOD    = [74, 52, 36, 255]
-_DECK    = [196, 170, 128, 255]
+# Colours for the exported model (sRGB, RGBA) per layer. Each layer gets its own
+# material named after it, which the web viewer uses to hide fabric and foam.
+LAYER_COLOURS = {
+    "fabric":    [176, 168, 152, 255],   # upholstery
+    "seat_foam": [222, 170, 96, 255],    # 40D seat foam
+    "back_foam": [236, 208, 128, 255],   # 32D back foam
+    "padding":   [242, 230, 196, 255],   # 28D padding
+    "webbing":   [92, 96, 104, 255],     # elastic webbing
+    "springs":   [150, 156, 164, 255],   # zig-zag spring steel
+    "plywood":   [214, 182, 134, 255],   # 12 mm ply
+    "frame":     [176, 122, 72, 255],    # sal hardwood
+    "legs":      [74, 52, 36, 255],      # dark wood
+}
 
 
 def _part_colour(name: str):
-    if name.startswith("leg"):
-        return _WOOD
-    if name.startswith("plywood"):
-        return _DECK
-    if "foam" in name:
-        return _FABRIC
-    return _FRAME
+    return LAYER_COLOURS.get(layer_of(name), LAYER_COLOURS["fabric"])
 
 
 def _srgb_to_linear(rgba):
@@ -240,12 +154,13 @@ def _part_material(name: str) -> trimesh.visual.material.PBRMaterial:
     vertex colours) defaults to metallicFactor 1.0, which renders almost black
     in viewers without environment lighting — so every part gets one.
     """
-    wood = name.startswith("leg")
+    layer = layer_of(name)
     return trimesh.visual.material.PBRMaterial(
-        name=name,
+        name=layer,
         baseColorFactor=_srgb_to_linear(_part_colour(name)),
         metallicFactor=0.0,
-        roughnessFactor=0.6 if wood else 0.9,   # fabric is matte; wood a little glossier
+        # fabric and foam are matte; wood and steel a little glossier
+        roughnessFactor=0.55 if layer in ("legs", "frame", "plywood", "springs") else 0.9,
     )
 
 
@@ -295,6 +210,15 @@ def render_preview_image(scene: trimesh.Scene, output_dir: str, request_id: str)
 
     if len(scene.geometry) == 0:
         raise ValueError("Scene contains no geometry to render")
+
+    # The still image shows the finished sofa; the interior is for the 3D viewer.
+    outside = trimesh.Scene()
+    for node in scene.graph.nodes_geometry:
+        transform, geom_name = scene.graph[node]
+        if layer_of(geom_name) in ("fabric", "legs"):
+            outside.add_geometry(scene.geometry[geom_name], geom_name=geom_name, transform=transform)
+    if len(outside.geometry):
+        scene = outside
 
     # trimesh >= 4.x: Scene.dump(concatenate=True) is deprecated; use to_geometry()
     if hasattr(scene, "to_geometry"):

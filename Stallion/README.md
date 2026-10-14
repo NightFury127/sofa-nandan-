@@ -72,7 +72,8 @@ Implemented in `src/cost_engine.py`, it supports two modes:
 Both modes apply scaling rules to produce scaled BOMs and cost estimates.
 
 ### 5. CAD Generation
-- **2D/3D Approximations (`src/cad_generator.py` & `src/cad_generator_3d.py`)**: Generates multi-view 2D drawings (PNG, DXF) and 3D preview meshes (GLB, OBJ) representing a component-based approximation of the sofa.
+- **2D drawings (`src/cad_generator.py`)**: multi-view 2D drawings (PNG, DXF).
+- **3D model with the inside (`src/sofa_interior.py`, exported by `src/cad_generator_3d.py`)**: the sofa as it is built — sal frame, 12 mm plywood, zig-zag springs, back webbing, 40D/32D foam, 28D padding and fabric — laid out from the same construction spec and seat / spring / leg counts the quote is priced from (`bom_geometry.py`). Exported as GLB and OBJ, plus an exploded GLB with the layers lifted apart.
 - **Production CAD (`src/production_cad.py`)**: Generates BREP/STEP models for all 5 sofa types via `build123d`.
 
 ## How to Run the Project
@@ -99,7 +100,7 @@ The web app (`frontend/index.html` + ES modules in `frontend/js/`) offers:
 - **Quote form** with per-type size ranges (from `master_dimensions.csv`, via `GET /api/config`), inline errors and photo guidance.
 - **Type detection on upload** (`POST /api/detect-type`): as soon as a photo is chosen the type classifier runs; a confident result (≥ 60%) pre-selects the type and its size ranges, which the customer can still change. A live **3D preview** of the chosen type (`GET /api/model-preview`) follows the dimensions as they are typed.
 - **Live progress** from the server (`GET /api/progress/{id}`) while the pipeline runs.
-- **Results** with the annotated photo, BOM, cost structure, CAD downloads and a rotatable **3D model** (`<model-viewer>`, bundled in `frontend/vendor/` so it works offline).
+- **Results** with the annotated photo, BOM, cost structure, CAD downloads and a rotatable **3D model** (`<model-viewer>`, bundled in `frontend/vendor/` so it works offline). Turn **Fabric** and **Foam** off to see inside the sofa, or switch to **Exploded** to see each layer lifted apart (`GET /api/model-preview?...&exploded=true` gives the same model).
 - **Quote PDF** (`GET /api/quotes/{id}/pdf`), branded with SVCE and Stallion.
 - **Cost estimator**: material quantities are worked out from the sofa's geometry and an assumed mid-range construction (`src/bom_geometry.py`: frame members, foam volume x density, fabric from panel area and roll width), then priced with the rate sheet `data/pricing/pricing.json` (researched Bengaluru market rates with wastage %, fabric/foam grades, labour and finishing per sofa type, overhead and profit). Each quote shows the factory price (excl. GST) and a retail-equivalent estimate (dealer markup + 18% GST). Sources and assumptions: [docs/08_COSTING.md](docs/08_COSTING.md).
 - **Rate editor** for staff (Staff → Rates, `GET/PUT /api/pricing`): every save is validated and the previous sheet is kept as `pricing.previous.json`.
@@ -130,7 +131,7 @@ Outputs are saved in the `outputs/` directory and include:
 
 ## Test Suite Health
 The project is currently passing all tests:
-- `tests/` directory contains 36 passing tests covering schemas, CAD generation, cost scaling per sofa type, and the quote API.
+- `tests/` directory contains 72 passing tests covering schemas, CAD generation, the 3D interior model (part counts and size match the quote), cost scaling per sofa type, and the quote API.
 - Root-level validation scripts (`test_detector_fix_validation.py`, `test_dimension_estimator.py`, etc.) all pass.
 
 ## Known Issues & Limitations

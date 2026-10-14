@@ -188,3 +188,21 @@ def test_model_preview_is_a_glb_and_checks_the_range(client):
     assert ok.content[:4] == b"glTF"
     bad = client.get("/api/model-preview", params={"sofa_type": "1_seater", "width": 2700, "depth": 975, "height": 850})
     assert bad.status_code == 400
+
+
+def test_model_preview_can_be_exploded(client):
+    params = {"sofa_type": "3_seater", "width": 2100, "depth": 900, "height": 850}
+    assembled = client.get("/api/model-preview", params=params)
+    exploded = client.get("/api/model-preview", params={**params, "exploded": "true"})
+    assert exploded.status_code == 200
+    assert exploded.content[:4] == b"glTF"
+    assert exploded.content != assembled.content
+
+
+def test_quote_returns_assembled_and_exploded_models(client, isolated_outputs):
+    body = _post(client, 2100, 900, 850, sofa_type="3_seater").json()
+    for key in ("cad_glb_url", "cad_glb_exploded_url"):
+        url = body[key]
+        assert url and url.startswith("/outputs/cad/") and url.endswith(".glb"), key
+        saved = isolated_outputs / url.removeprefix("/outputs/")
+        assert saved.read_bytes()[:4] == b"glTF", key

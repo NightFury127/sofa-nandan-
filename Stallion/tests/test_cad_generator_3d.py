@@ -75,8 +75,68 @@ def test_glb_parts_have_non_metallic_materials(tmp_path):
             material = gltf["materials"][prim["material"]]
             pbr = material["pbrMetallicRoughness"]
             assert pbr["metallicFactor"] == 0.0
-            if not material["name"].startswith("leg"):           # legs are dark wood
+            if material["name"] in ("fabric", "seat_foam", "back_foam", "padding"):
                 assert max(pbr["baseColorFactor"][:3]) > 0.2     # upholstery not near-black
+
+
+SIZES = {"1_seater": (850, 850, 850), "2_seater": (1550, 900, 850), "3_seater": (2100, 900, 850),
+         "4_seater_plus": (2700, 950, 850), "l_shape": (2700, 975, 850)}
+
+
+def _layer_counts(scene):
+    from collections import Counter
+    from sofa_interior import layer_of
+    return Counter(layer_of(name) for name in scene.geometry)
+
+
+def test_interior_model_matches_the_quoted_construction():
+    # The viewer shows what the quote charges for: same springs, legs and cushions.
+    from bom_geometry import geometry_bom
+    from cost_engine import normalize_sofa_type
+
+    for sofa_type, (L, W, H) in SIZES.items():
+        scene = build_sofa_mesh({}, {"length_mm": L, "width_mm": W, "height_mm": H}, sofa_type)
+        bom = {r["component_group"]: r["new_qty"] for r in geometry_bom(normalize_sofa_type(sofa_type), L, W, H)}
+        counts = _layer_counts(scene)
+        assert counts["springs"] == bom["Springs"], sofa_type
+        assert counts["legs"] == bom["Legs"], sofa_type
+        assert counts["seat_foam"] == bom["Sundries"], sofa_type     # one seat cushion per seat
+        for layer in ("frame", "plywood", "webbing", "padding", "back_foam", "fabric"):
+            assert counts[layer] > 0, (sofa_type, layer)
+
+
+def test_interior_model_fits_the_quoted_size():
+    for sofa_type, (L, W, H) in SIZES.items():
+        scene = build_sofa_mesh({}, {"length_mm": L, "width_mm": W, "height_mm": H}, sofa_type)
+        lo, hi = scene.bounds
+        size = hi - lo
+        assert abs(size[0] - L) < 1 and abs(size[2] - H) < 1, sofa_type
+        if sofa_type == "l_shape":
+            assert size[1] > W                 # chaise reaches forward
+        else:
+            assert abs(size[1] - W) < 1, sofa_type
+
+
+def test_seat_foam_volume_matches_the_quote():
+    # Foam is drawn inside its 3 mm fabric cover, so it is a few percent under the net quantity.
+    from bom_geometry import geometry_bom
+    from sofa_interior import layer_of
+
+    scene = build_sofa_mesh({}, {"length_mm": 2100, "width_mm": 900, "height_mm": 850}, "3_seater")
+    volume_m3 = sum(g.volume for n, g in scene.geometry.items() if layer_of(n) == "seat_foam") / 1e9
+    bom = {r["component_group"]: r["new_qty"] for r in geometry_bom("3-seater", 2100, 900, 850)}
+    assert 0.9 < volume_m3 * 40.0 / bom["Seat Foam"] <= 1.0
+
+
+def test_exploded_model_lifts_the_outer_layers():
+    dims = {"length_mm": 2100, "width_mm": 900, "height_mm": 850}
+    assembled = build_sofa_mesh({}, dims, "3_seater")
+    exploded = build_sofa_mesh({}, dims, "3_seater", exploded=True)
+    assert set(assembled.geometry) == set(exploded.geometry)
+    assert exploded.bounds[1][2] > assembled.bounds[1][2] * 2
+    frame = [n for n in assembled.geometry if n.startswith("frame:")]
+    for name in frame:                                   # the frame stays put
+        assert (exploded.geometry[name].bounds == assembled.geometry[name].bounds).all()
 
 
 def test_quote_pipeline_handles_step_generation_failure():

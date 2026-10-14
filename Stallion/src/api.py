@@ -279,10 +279,11 @@ def detect_type_endpoint(image: UploadFile = File(...)):
 
 
 @app.get("/api/model-preview")
-def model_preview(sofa_type: str, width: float, depth: float, height: float):
+def model_preview(sofa_type: str, width: float, depth: float, height: float, exploded: bool = False):
     """
     A 3D model (GLB) of the chosen type at the given size, for the live preview
-    in the quote form. Same geometry as the quote's model; nothing is saved.
+    in the quote form. Same geometry as the quote's model, internal parts
+    included; exploded=true lifts the layers apart. Nothing is saved.
     """
     engine = SofaCostEngine()
     engine.load_data()
@@ -293,7 +294,7 @@ def model_preview(sofa_type: str, width: float, depth: float, height: float):
     bom = dict(zip(bom_df["component_group"], bom_df["new_qty"]))
     scene = build_sofa_mesh(scaled_bom=bom,
                             dimensions={"length_mm": width, "width_mm": depth, "height_mm": height},
-                            sofa_type=sofa_type)
+                            sofa_type=sofa_type, exploded=exploded)
     return Response(glb_bytes(scene), media_type="model/gltf-binary",
                     headers={"Cache-Control": "public, max-age=3600"})
 
@@ -594,6 +595,7 @@ def create_quote(
     cad_dxf_url     = None
     cad_step_url    = None
     cad_glb_url     = None
+    cad_glb_exploded_url = None
     cad_3d_prev_url = None
     cad_error       = None
 
@@ -640,6 +642,16 @@ def create_quote(
             if glb_p.exists():
                 shutil.copy2(glb_p, request_folder / glb_p.name)
                 cad_glb_url = f"/outputs/cad/{glb_p.name}"
+
+            # Exploded view: each layer (fabric, foam, suspension) lifted apart
+            exploded_p = cad_out_dir / f"{request_id}_exploded.glb"
+            exploded_p.write_bytes(glb_bytes(build_sofa_mesh(
+                scaled_bom=bom_for_cad,
+                dimensions={"length_mm": length_mm, "width_mm": width_mm, "height_mm": height_mm},
+                sofa_type=sofa_type, exploded=True,
+            )))
+            shutil.copy2(exploded_p, request_folder / exploded_p.name)
+            cad_glb_exploded_url = f"/outputs/cad/{exploded_p.name}"
 
             prev_p = Path(preview_3d)
             if prev_p.exists():
@@ -697,6 +709,7 @@ def create_quote(
         "cad_dxf_url":       cad_dxf_url,
         "cad_step_url":      cad_step_url,
         "cad_glb_url":       cad_glb_url,
+        "cad_glb_exploded_url": cad_glb_exploded_url,
         "cad_3d_preview_url": cad_3d_prev_url,
         "pdf_url":           f"/api/quotes/{request_id}/pdf",
         **({"cad_error": cad_error} if cad_error else {}),

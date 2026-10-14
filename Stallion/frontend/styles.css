@@ -1144,3 +1144,17 @@ footer{grid-template-columns:1.2fr 1fr 1.2fr;align-items:start;padding:55px 5vw}
 .footer-nav button:hover{color:var(--accent)}
 .output-columns>*{min-width:0}
 .bom-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* 3D viewer: open the sofa up (hide fabric / foam, exploded view) */
+.model-controls{position:absolute;top:14px;left:14px;z-index:4;display:flex;flex-wrap:wrap;gap:8px}
+.model-controls[hidden],.model-legend[hidden]{display:none}
+.model-seg{display:flex;border:1px solid #3a3a37;background:#141413e6}
+.model-seg button{background:none;border:0;color:#9a968c;font:10px var(--mono);letter-spacing:.14em;padding:9px 12px;cursor:pointer;transition:color .2s,background .2s}
+.model-seg button+button{border-left:1px solid #3a3a37}
+.model-seg button:hover{color:var(--paper)}
+.model-seg button[aria-pressed="true"]{color:var(--ink);background:var(--accent)}
+.model-seg button:focus-visible{outline:1px solid var(--paper);outline-offset:-3px}
+.model-legend{position:absolute;right:14px;bottom:14px;z-index:3;list-style:none;margin:0;padding:10px 12px;display:grid;gap:5px;background:#141413e6;border:1px solid #2a2a28;color:#b8b4aa;font-size:9px;pointer-events:none}
+.model-legend li{display:flex;align-items:center;gap:8px}
+.model-legend i{width:10px;height:10px;flex:none;border:1px solid #0006}
+@media (max-width:640px){.model-legend{display:none}}

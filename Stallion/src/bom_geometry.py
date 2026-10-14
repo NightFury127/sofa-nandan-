@@ -66,20 +66,68 @@ def _cushion_fabric(width, depth, thick, count):
     return faces + boxing
 
 
-def _straight_run(t: _Totals, length, depth, height, arms, c=CONSTRUCTION, seats=None, back=True):
-    """Add a straight sofa section (or chaise if back=False) to the totals."""
+def sofa_runs(sofa_type: str, L: float, W: float, c: dict = CONSTRUCTION) -> list[dict]:
+    """
+    The straight sections a sofa is built from (metres), with their seat count.
+    A straight sofa is one run with an arm at each end. An L-shape is a main run
+    with its arm on the left and a chaise in front of its right-hand end, with
+    the chaise arm on the right. Both the cost estimate and the 3D model
+    (sofa_interior.py) lay the sofa out from this.
+    """
+    if sofa_type == "l-shape":
+        runs = [dict(length=L, depth=W, arm_sides=("left",), seats=None, back=True),
+                dict(length=c["chaise_width"], depth=max(0.3, c["chaise_projection"] - W),
+                     arm_sides=("right",), seats=1, back=False)]
+    else:
+        seats = {"1-seater": 1, "2-seater": 2, "3-seater": 3}.get(sofa_type)
+        if sofa_type == "4-seater":
+            seats = max(4, round((L - 2 * c["arm_width"]) / c["seat_module"]))
+        runs = [dict(length=L, depth=W, arm_sides=("left", "right"), seats=seats, back=True)]
+    for r in runs:
+        seat_w = max(0.3, r["length"] - len(r["arm_sides"]) * c["arm_width"])
+        r["seats"] = r["seats"] or max(1, round(seat_w / c["seat_module"]))
+    return runs
+
+
+def run_dims(run: dict, height: float, c: dict = CONSTRUCTION) -> dict:
+    """Derived sizes of one run (metres): seat width/depth, arm and base heights."""
+    back = run["back"]
+    return {
+        "arm_h":          min(c["arm_height"], height - 0.15),
+        "base_top":       c["leg_height"] + c["base_frame_height"],
+        "seat_w":         max(0.3, run["length"] - len(run["arm_sides"]) * c["arm_width"]),
+        "seat_d":         max(0.3, run["depth"] - (c["back_frame_depth"] + c["back_foam_thick"] if back else 0.0)),
+        "back_h":         height - c["leg_height"] - c["base_frame_height"],
+        "back_cushion_h": max(0.2, height - c["seat_height"] - 0.03),
+    }
+
+
+def spring_count(seat_w: float, c: dict = CONSTRUCTION) -> int:
+    return math.ceil(seat_w / c["spring_pitch"])
+
+
+def webbing_rows(back_cushion_h: float, c: dict = CONSTRUCTION) -> int:
+    return math.ceil(back_cushion_h / c["webbing_pitch"])
+
+
+def leg_count(length: float, c: dict = CONSTRUCTION) -> int:
+    """Corner legs, plus a centre pair on long runs."""
+    return 4 + (2 if length >= c["centre_legs_from"] else 0)
+
+
+def _straight_run(t: _Totals, run: dict, height, c=CONSTRUCTION):
+    """Add a straight sofa section (or chaise if run['back'] is False) to the totals."""
+    length, depth, back, n = run["length"], run["depth"], run["back"], run["seats"]
+    arms = len(run["arm_sides"])
+    d = run_dims(run, height, c)
     arm_w, leg_h = c["arm_width"], c["leg_height"]
-    arm_h = min(c["arm_height"], height - 0.15)
-    base_top = leg_h + c["base_frame_height"]
-    seat_w = max(0.3, length - arms * arm_w)
-    seat_d = max(0.3, depth - (c["back_frame_depth"] + c["back_foam_thick"] if back else 0.0))
-    n = seats or max(1, round(seat_w / c["seat_module"]))
+    arm_h, base_top, seat_w, seat_d = d["arm_h"], d["base_top"], d["seat_w"], d["seat_d"]
+    back_h, back_cushion_h = d["back_h"], d["back_cushion_h"]
     t.seats += n
 
     # Frame: base box + seat cross rails, back frame, arm frames
     cross_rails = n + 1
     t.timber_m += 2 * length + 2 * depth + cross_rails * seat_d
-    back_h = height - base_top
     if back:
         t.timber_m += 2 * length + (n + 1) * back_h
     t.timber_m += arms * (2 * (arm_h - leg_h) + 2 * depth)
@@ -92,7 +140,6 @@ def _straight_run(t: _Totals, length, depth, height, arms, c=CONSTRUCTION, seats
 
     # Foam
     t.seat_foam_m3 += seat_w * seat_d * c["seat_foam_thick"]
-    back_cushion_h = max(0.2, height - c["seat_height"] - 0.03)
     if back:
         t.back_foam_m3 += seat_w * back_cushion_h * c["back_foam_thick"]
     arm_pad = arms * (2 * depth * (arm_h - base_top) + depth * arm_w + arm_w * (arm_h - leg_h))
@@ -113,12 +160,12 @@ def _straight_run(t: _Totals, length, depth, height, arms, c=CONSTRUCTION, seats
     t.wrap_m2 += seat_w * seat_d + (seat_w * back_cushion_h if back else 0.0)
 
     # Suspension
-    t.springs += math.ceil(seat_w / c["spring_pitch"])
+    t.springs += spring_count(seat_w, c)
     if back:
-        t.webbing_m += math.ceil(back_cushion_h / c["webbing_pitch"]) * seat_w
+        t.webbing_m += webbing_rows(back_cushion_h, c) * seat_w
 
     # Legs: corners, plus centre support on long runs
-    t.legs += 4 + (2 if length >= c["centre_legs_from"] else 0)
+    t.legs += leg_count(length, c)
 
 
 def geometry_bom(sofa_type: str, length_mm: float, width_mm: float, height_mm: float,
@@ -130,19 +177,10 @@ def geometry_bom(sofa_type: str, length_mm: float, width_mm: float, height_mm: f
     """
     L, W, H = length_mm / 1000.0, width_mm / 1000.0, height_mm / 1000.0
     t = _Totals()
-    fixed_seats = {"1-seater": 1, "2-seater": 2, "3-seater": 3}
-
+    for run in sofa_runs(sofa_type, L, W, c):
+        _straight_run(t, run, H, c)
     if sofa_type == "l-shape":
-        # Main run with one arm; the chaise extends forward at the other end
-        _straight_run(t, L, W, H, arms=1, c=c)
-        extra = max(0.3, c["chaise_projection"] - W)
-        _straight_run(t, c["chaise_width"], extra, H, arms=1, c=c, seats=1, back=False)
         t.legs -= 2            # chaise shares the main run's corner legs
-    else:
-        seats = fixed_seats.get(sofa_type)
-        if sofa_type == "4-seater":
-            seats = max(4, round((L - 2 * c["arm_width"]) / c["seat_module"]))
-        _straight_run(t, L, W, H, arms=2, c=c, seats=seats)
 
     sec_w, sec_h = c["member_section"]
     timber_cft = t.timber_m * sec_w * sec_h * M3_TO_CFT

@@ -50,6 +50,7 @@ function selectTab(tab, focus = false) {
 }
 
 export function initResults() {
+  initModelControls();
   $("photo-enlarge").addEventListener("click", openInspection);
   $("inspection-close").addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); closeInspection(); });
   $("inspection-viewer").addEventListener("click", e => { if (e.target.id === "inspection-viewer") closeInspection(); });
@@ -76,11 +77,69 @@ export function initResults() {
 // ── 3D viewer: <model-viewer>, loaded only when a model exists ───────────────
 let modelViewerLoad = null;
 
+// Each layer of the model has its own material (see cad_generator_3d.LAYER_COLOURS).
+// Hiding fabric, then foam, opens the sofa up to the springs, webbing and frame.
+const LAYER_GROUPS = {
+  fabric: ["fabric"],
+  foam: ["seat_foam", "back_foam", "padding"],
+};
+const modelState = { exploded: false, hidden: new Set(), urls: {} };
+
+function applyLayers(mv) {
+  if (!mv?.model) return;
+  const hide = new Set([...modelState.hidden].flatMap(group => LAYER_GROUPS[group]));
+  for (const material of mv.model.materials) {
+    const hidden = hide.has(material.name);
+    const [r, g, b] = material.pbrMetallicRoughness.baseColorFactor;
+    material.setAlphaMode(hidden ? "BLEND" : "OPAQUE");
+    material.pbrMetallicRoughness.setBaseColorFactor([r, g, b, hidden ? 0 : 1]);
+  }
+}
+
+function syncModelControls() {
+  $("view-assembled").setAttribute("aria-pressed", String(!modelState.exploded));
+  $("view-exploded").setAttribute("aria-pressed", String(modelState.exploded));
+  for (const group of Object.keys(LAYER_GROUPS)) {
+    $("layer-" + group).setAttribute("aria-pressed", String(!modelState.hidden.has(group)));
+  }
+}
+
+function setExploded(exploded) {
+  const mv = $("twin-viewer").querySelector("model-viewer");
+  const src = exploded ? modelState.urls.exploded : modelState.urls.assembled;
+  modelState.exploded = exploded;
+  syncModelControls();
+  if (!mv || !src || mv.getAttribute("src") === src) return;
+  $("result-3d-status").textContent = "LOADING 3D MODEL…";
+  $("result-3d-status").hidden = false;
+  mv.setAttribute("src", src);
+}
+
+function initModelControls() {
+  $("view-assembled").addEventListener("click", () => setExploded(false));
+  $("view-exploded").addEventListener("click", () => setExploded(true));
+  for (const group of Object.keys(LAYER_GROUPS)) {
+    $("layer-" + group).addEventListener("click", () => {
+      if (modelState.hidden.has(group)) modelState.hidden.delete(group);
+      else modelState.hidden.add(group);
+      syncModelControls();
+      applyLayers($("twin-viewer").querySelector("model-viewer"));
+    });
+  }
+}
+
 async function show3d(data) {
   const stage = $("twin-viewer");
   const status = $("result-3d-status");
   stage.innerHTML = "";
   const has3d = Boolean(data.cad_glb_url || data.cad_3d_preview_url);
+  modelState.exploded = false;
+  modelState.hidden.clear();
+  modelState.urls = { assembled: data.cad_glb_url, exploded: data.cad_glb_exploded_url };
+  syncModelControls();
+  $("view-exploded").hidden = !data.cad_glb_exploded_url;
+  $("model-controls").hidden = true;
+  $("model-legend").hidden = true;
   $("tab-3d").hidden = !has3d;
   selectTab(has3d ? $("tab-3d") : $("tab-photo"));
   if (!has3d) return;
@@ -103,7 +162,12 @@ async function show3d(data) {
     mv.setAttribute("exposure", "1.05");
     mv.setAttribute("camera-orbit", "30deg 72deg auto");
     mv.setAttribute("interaction-prompt", "none");
-    mv.addEventListener("load", () => { status.hidden = true; });
+    mv.addEventListener("load", () => {
+      status.hidden = true;
+      applyLayers(mv);
+      $("model-controls").hidden = false;
+      $("model-legend").hidden = false;
+    });
     mv.addEventListener("error", () => { status.textContent = "THE 3D MODEL COULDN'T BE DISPLAYED"; });
     stage.appendChild(mv);
   } catch (err) {

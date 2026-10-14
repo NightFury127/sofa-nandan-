@@ -338,6 +338,26 @@
           <div class="result-3d" id="result-3d" role="tabpanel" aria-labelledby="tab-3d">
             <div class="result-3d-stage" id="twin-viewer"></div>
             <div class="mono result-3d-status" id="result-3d-status">LOADING 3D MODEL…</div>
+            <div class="model-controls" id="model-controls" hidden>
+              <div class="model-seg" role="group" aria-label="Model view">
+                <button type="button" id="view-assembled" aria-pressed="true">ASSEMBLED</button>
+                <button type="button" id="view-exploded" aria-pressed="false">EXPLODED</button>
+              </div>
+              <div class="model-seg" role="group" aria-label="Show or hide layers to see inside">
+                <button type="button" id="layer-fabric" aria-pressed="true">FABRIC</button>
+                <button type="button" id="layer-foam" aria-pressed="true">FOAM</button>
+              </div>
+            </div>
+            <ul class="model-legend mono" id="model-legend" hidden aria-label="What the parts are">
+              <li><i style="background:#b0a898"></i>FABRIC</li>
+              <li><i style="background:#deaa60"></i>40D SEAT FOAM</li>
+              <li><i style="background:#ecd080"></i>32D BACK FOAM</li>
+              <li><i style="background:#f2e6c4"></i>28D PADDING</li>
+              <li><i style="background:#5c6068"></i>ELASTIC WEBBING</li>
+              <li><i style="background:#969ca4"></i>ZIG-ZAG SPRINGS</li>
+              <li><i style="background:#d6b686"></i>12 MM PLYWOOD</li>
+              <li><i style="background:#b07a48"></i>SAL FRAME 75×50</li>
+            </ul>
             <div class="image-overlay" aria-hidden="true">3D MODEL · DRAG TO ROTATE · SCROLL TO ZOOM</div>
           </div>
 
