@@ -1,17 +1,22 @@
 # Detection models: what they are, how to rebuild them, how accurate they are
 
-Last measured: 2026-10-07.
+Last measured: 2026-10-14 (type classifier v3 promoted).
 
 ## The three models
 
 | Model | Job | Weights | Rebuildable from this repo |
 |---|---|---|---|
 | Sofa detector (YOLOv8n-seg, 11 classes) | Is there a sofa? Which parts? Is it the Stallion product? | `data/models/weights/sofa_detector.pt` | Yes, from `merged_sofa_dataset.zip` |
-| Type classifier v2 (YOLOv8n-cls) | 1-seater / 2-seater / 3-seater / 4-seater+ / L-shape | `data/models/weights/sofa_type_classifier.pt` (v1 kept as `sofa_type_classifier_prev.pt`) | Yes |
+| Type classifier v3 (YOLOv8s-cls, square-padded photos) | 1-seater / 2-seater / 3-seater / 4-seater+ / L-shape | `data/models/weights/sofa_type_classifier.pt` + `sofa_type_classifier.json` (v2 kept as `sofa_type_classifier_v2_E_v8n224.pt`, v1 as `sofa_type_classifier_prev.pt`) | Yes |
 | COCO fallback (YOLOv8n) | Used only if the sofa detector file is missing | `data/models/weights/yolov8n.pt` | Not needed (stock model) |
 
 `.pt` files are gitignored. A fresh clone has none of them: copy them into
-`data/models/weights/`, or rebuild them as below.
+`data/models/weights/`, or rebuild them as below. Copy
+`sofa_type_classifier.json` along with `sofa_type_classifier.pt`: it says the
+model expects square-padded photos (`{"preprocess": "pad_square"}`). Without
+it the photo would be centre-cropped and the v3 model would lose accuracy. To
+go back to v2, copy `sofa_type_classifier_v2_E_v8n224.pt` over
+`sofa_type_classifier.pt` and delete the `.json`.
 
 ### How the pipeline uses them (`src/sofa_validator.py`)
 
@@ -32,7 +37,32 @@ the Stallion room photo `data/inputs/images/test_sofa.jpg` correctly.
 
 ## Rebuilding the type classifier
 
-The live classifier (v2, 2026-10-07) is trained on catalogue photos plus
+The live classifier (v3, 2026-10-14) is a YOLOv8s-cls trained on
+**square-padded** photos: catalogue photos, 1,034 hand-reviewed room photos
+and room composites. Padding matters because the classifier otherwise resizes
+the short side and centre-crops a square, cutting the ends off wide sofas, so
+4-seaters looked like 3-seaters and 3-seaters like 2-seaters.
+
+v3 build, after the v2 steps below:
+
+```
+cd src
+python collect_web_photos.py --angled        # round 2: angled 3-seaters, long 4-seaters, angled 2-seaters
+                                             # review every new row in review.csv, then:
+python collect_web_photos.py --apply-review
+python extend_type_dataset.py                # keeps the v2 split; new photos 70/10/20 -> processed/sofa_types_v3(_sq)/
+                                             # (20% go to a separate test_rooms_new split)
+python train_type_classifier.py --dataset ../data/datasets/processed/sofa_types_v3_sq \
+    --extra-train ../data/datasets/processed/sofa_types_composited_sq \
+    --model yolov8s-cls.pt --img 224 --batch 16 --epochs 100 --patience 20 --workers 1 --device 0
+                                             # ~25 min on the RTX 4060 laptop GPU
+```
+
+`sofa_types_composited_sq` is the composites padded the same way (see
+`extend_type_dataset.py`'s padding, `sofa_type_classifier.pad_square`). When
+promoting a padded model, also write `sofa_type_classifier.json` as above.
+
+v2 (2026-10-07) was trained on catalogue photos plus
 hand-reviewed room photos. Needs (all gitignored; copy them across):
 - `data/datasets/raw/<1-seater|2-seater|3-seater|4-seater|L-shape>/` — catalogue photos
 - `data/datasets/collected/web/reviewed/<type>/` — reviewed room photos (see "Collecting more photos")
@@ -52,7 +82,10 @@ python eval_sofa_types.py --classifier ../data/models/weights/sofa_type_classifi
 ```
 
 Copy the candidate over `sofa_type_classifier.pt` only if it scores at least as
-well on both the catalogue `test` and the room `test_rooms` splits.
+well on both the catalogue `test` and the room `test_rooms` splits. (v3 was
+promoted on 2026-10-14 by the project owner's decision despite scoring 1.9
+points lower on catalogue photos, because it is clearly better on room photos;
+see "Current accuracy".)
 
 `prepare_type_dataset.py` drops exact duplicate photos, drops photos that appear
 in two type folders (listed in `label_conflicts.txt`), and skips types with
@@ -99,7 +132,45 @@ and count top-match `stallion-sofa*` classes over `raw/` and the web room photos
 
 ## Current accuracy
 
-### Sofa type — classifier v2 (live) vs v1 (`eval_sofa_types.py`)
+### Sofa type — classifier v3 (live, 2026-10-14) vs v2
+
+Measured through `SofaTypeClassifier` (with its padding) on the original
+photos. `test_rooms` is the same 264 held-out room photos as before;
+`test_rooms_new` is 31 held-out photos from the round-2 collection, mostly the
+hard cases it targeted.
+
+| Type | Room test v3 | Room test v2 | Catalogue v3 | Catalogue v2 |
+|---|---:|---:|---:|---:|
+| 1-seater | **97.6%** (n=84) | 86.9% | 80.0% (n=30) | 80.0% |
+| 2-seater | **84.5%** (n=71) | 78.9% | 95.9% (n=97) | 97.9% |
+| 3-seater | **76.3%** (n=38) | 71.1% | 66.7% (n=9) | 88.9% |
+| 4-seater | **50.0%** (n=22) | 45.5% | no test photos | no test photos |
+| L-shape | 95.9% (n=49) | 98.0% | 98.8% (n=80) | 98.8% |
+| **Overall** | **86.7%** (264) | 81.1% | 93.5% (216) | **95.4%** |
+| **Balanced** | **80.9%** | 76.0% | 85.3% | **91.4%** |
+| Round-2 hard cases (`test_rooms_new`, 31) | **77.4%** | 71.0% | | |
+
+The catalogue drop is 4 photos of 216, 2 of them among only 9 catalogue
+3-seaters. The angled 3-seater a user reported (`collected/user_reports/`),
+which v2 read as 51% L-shape, v3 reads as 3-seater at 94%.
+
+Other candidates trained the same day (all on padded photos unless noted):
+
+| Candidate | Room test | Hard cases | Catalogue | Val rooms |
+|---|---:|---:|---:|---:|
+| YOLOv8n, v2 photos | 83.0% | — | 95.4% | 89.8% |
+| YOLOv8n, v3 photos | 83.0% | 77.4% | 94.4% | 88.3% |
+| YOLOv8n, v3, equal class balance | 81.1% | 71.0% | 92.6% | 90.3% |
+| YOLO11n, v3 photos | 86.7% | 71.0% | 92.6% | 87.4% |
+| **YOLOv8s, v3 photos (promoted)** | **86.7%** | **77.4%** | 93.5% | **94.2%** |
+| YOLOv8s, v2 photos, centre-cropped | 79.5% | — | 93.1% | 89.8% |
+
+Also tried: cropping to the detector's sofa box before classifying (worse,
+69–77% on rooms: the box often cuts off long sofas) and averaging with the
+mirrored photo (+0–2 points on rooms, −0.5 to +1 on catalogue; not used).
+Training at 320 px crashes the laptop GPU (CUDA errors) and was dropped.
+
+### Sofa type — classifier v2 vs v1 (`eval_sofa_types.py`)
 
 Room photos are what customers send, so the room column matters most. v1 is
 the previous classifier (catalogue photos only), kept as `sofa_type_classifier_prev.pt`.

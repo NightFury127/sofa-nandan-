@@ -60,7 +60,7 @@ User Input: sofa image + length/width/height (mm)
 The `src/image_processor.py` validates file type, resolution (minimum 200x200), max size (50 MB), and OpenCV readability. It generates an `image_metadata.json` for downstream processing.
 
 ### 2. Sofa Detection & Classification
-The validation layer (`src/sofa_validator.py`) uses a YOLOv8 segmentation detector (`data/models/weights/sofa_detector.pt`, COCO fallback if missing) to confirm there is a sofa and find its parts, and a separate type classifier (`sofa_type_classifier.pt`) to decide `1_seater` / `2_seater` / `3_seater` / `4_seater_plus` / `l_shape` (95.4% on held-out catalogue photos, 81.1% on held-out room photos). The quote is priced with the type the user selects; the detected type only flags a likely wrong selection. See [docs/07_MODELS.md](docs/07_MODELS.md) for how to rebuild the models and their measured accuracy.
+The validation layer (`src/sofa_validator.py`) uses a YOLOv8 segmentation detector (`data/models/weights/sofa_detector.pt`, COCO fallback if missing) to confirm there is a sofa and find its parts, and a separate type classifier (`sofa_type_classifier.pt`, YOLOv8s trained on square-padded photos; keep `sofa_type_classifier.json` next to it) to decide `1_seater` / `2_seater` / `3_seater` / `4_seater_plus` / `l_shape` (86.7% on held-out room photos, 93.5% on held-out catalogue photos). When it is less than 60% sure it shows its two best guesses instead of one. The quote is priced with the type the user selects; the detected type only flags a likely wrong selection. See [docs/07_MODELS.md](docs/07_MODELS.md) for how to rebuild the models and their measured accuracy.
 
 ### 3. Dimension Estimation
 The `src/dimension_estimator.py` estimates the overall sofa height from the bounding box and a user-provided anchor length. It includes four confidence gates to suppress unreliable estimates, returning `estimated_dimensions` to the API.
@@ -131,7 +131,7 @@ Outputs are saved in the `outputs/` directory and include:
 
 ## Test Suite Health
 The project is currently passing all tests:
-- `tests/` directory contains 75 passing tests covering schemas, CAD generation, the 3D interior model (part counts and size match the quote, and the 3-seater matches the reference model part by part), cost scaling per sofa type, and the quote API.
+- `tests/` directory contains 78 passing tests covering schemas, CAD generation, the 3D interior model (part counts and size match the quote, and the 3-seater matches the reference model part by part), cost scaling per sofa type, the type classifier's padding, and the quote API.
 - Root-level validation scripts (`test_detector_fix_validation.py`, `test_dimension_estimator.py`, etc.) all pass.
 
 ## Known Issues & Limitations

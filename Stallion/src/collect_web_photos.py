@@ -86,6 +86,23 @@ QUERIES = {
     "l_shape":       ["l shaped sofa living room", "sectional sofa living room photo",
                       "corner sofa home interior", "l shape couch apartment"],
 }
+# Second round (2026-10-14): the classifier's weakest cases on room photos are
+# 4-seaters (read as 3-seaters), 2-seaters read as 3-seaters, and 3-seaters shot
+# at an angle (read as L-shapes). These queries look for exactly those views.
+ANGLED_QUERIES = {
+    "2_seater":      ["2 seater sofa side view living room", "loveseat angled view living room",
+                      "2 seater sofa corner of room", "modern loveseat interior design photo"],
+    "3_seater":      ["3 seater sofa side view living room", "three seater sofa angled view",
+                      "3 seater sofa perspective living room", "mid century 3 seater sofa living room",
+                      "3 seater sofa wooden base living room", "3 seater sofa corner of living room",
+                      "modern three seater sofa interior design", "84 inch sofa living room",
+                      "3 seater sofa india hall interior", "three seater sofa with throw pillows room"],
+    "4_seater_plus": ["4 seater sofa side view living room", "large 4 seater sofa living room interior",
+                      "long sofa living room angled", "4 seater sofa with cushions living room",
+                      "extra long couch living room", "96 inch sofa living room", "four seater modular sofa room",
+                      "4 seater sofa hall interior india", "long straight sofa large living room",
+                      "4 seat sofa open plan living room"],
+}
 MANIFEST_FIELDS = ["file", "guessed_type", "query", "title", "image_url", "page_url", "md5", "ahash"]
 REVIEW_FIELDS   = ["file", "guessed_type", "sofa_found", "suggested_type", "suggested_conf",
                    "verdict", "reviewer_note"]
@@ -140,7 +157,7 @@ def _download(url):
     return img
 
 
-def collect(per_query: int, only=None):
+def collect(per_query: int, only=None, queries=QUERIES):
     from ddgs import DDGS
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -157,12 +174,12 @@ def collect(per_query: int, only=None):
 
     ddgs = DDGS()
     added = 0
-    for sofa_type, queries in QUERIES.items():
+    for sofa_type, type_queries in queries.items():
         if only and sofa_type not in only:
             continue
         type_dir = OUT_DIR / "candidates" / sofa_type
         type_dir.mkdir(parents=True, exist_ok=True)
-        for q in queries:
+        for q in type_queries:
             try:
                 results = list(ddgs.images(q, max_results=per_query, type_image="photo"))
             except Exception as e:
@@ -268,6 +285,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--per-query", type=int, default=80, help="Search results to fetch per query")
     ap.add_argument("--only", nargs="+", choices=list(QUERIES), help="Collect only these types")
+    ap.add_argument("--angled", action="store_true",
+                    help="Use the second-round queries (angled 3-seaters, long 4-seaters) instead of the original set")
     ap.add_argument("--suggest", action="store_true", help="Pre-fill review.csv with model suggestions")
     ap.add_argument("--apply-review", action="store_true", help="Copy accepted photos from review.csv")
     args = ap.parse_args()
@@ -276,4 +295,4 @@ if __name__ == "__main__":
     elif args.apply_review:
         apply_review()
     else:
-        collect(args.per_query, args.only)
+        collect(args.per_query, args.only, ANGLED_QUERIES if args.angled else QUERIES)

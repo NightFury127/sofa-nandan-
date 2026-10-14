@@ -72,7 +72,8 @@ def build_training_copy(extra_train=None, dataset_dir: Path = DATASET_DIR,
 
 
 def train(base_model: str, epochs: int, img_size: int, batch: int, device: str, extra_train=None,
-          dataset_dir: Path = DATASET_DIR, balance: float = MIN_CLASS_FRACTION):
+          dataset_dir: Path = DATASET_DIR, balance: float = MIN_CLASS_FRACTION,
+          patience: int = 10, workers: int = 8):
     from ultralytics import YOLO
 
     data_dir = build_training_copy(extra_train, dataset_dir, balance)
@@ -87,7 +88,8 @@ def train(base_model: str, epochs: int, img_size: int, batch: int, device: str, 
         device   = device,
         project  = str(RUNS_DIR),
         name     = run_name,
-        patience = 10,
+        patience = patience,
+        workers  = workers,
         seed     = 42,
         plots    = True,
         verbose  = False,
@@ -114,5 +116,8 @@ if __name__ == "__main__":
                     help="Split to train on (default processed/sofa_types; v2 with room photos: processed/sofa_types_v2)")
     ap.add_argument("--balance", type=float, default=MIN_CLASS_FRACTION,
                     help="Oversample each type up to this fraction of the largest (default 0.5; 1.0 = equal)")
+    ap.add_argument("--patience", type=int, default=10, help="Stop after this many epochs without improvement")
+    ap.add_argument("--workers", type=int, default=8, help="Data-loading processes (fewer uses less RAM)")
     args = ap.parse_args()
-    train(args.model, args.epochs, args.img, args.batch, args.device, args.extra_train, args.dataset, args.balance)
+    train(args.model, args.epochs, args.img, args.batch, args.device, args.extra_train, args.dataset, args.balance,
+          args.patience, args.workers)
