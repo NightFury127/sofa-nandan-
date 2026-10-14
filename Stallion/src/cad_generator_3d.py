@@ -98,15 +98,16 @@ def _lookup_qty(scaled_bom, *names):
 def build_sofa_mesh(scaled_bom: dict, dimensions: dict, sofa_type: str = "3_seater",
                     exploded: bool = False) -> trimesh.Scene:
     """
-    Build the 3D sofa with its internal construction (sofa_interior.py): frame,
-    plywood, springs, webbing, foam and fabric, laid out from the same
-    construction spec and counts the quote is priced from. The footprint is
+    Build the 3D sofa with its internal construction (sofa_interior.py, from the
+    parts in sofa_build.py that follow the reference "Sofa Internal
+    Structure.f3z"): frame, plywood, springs, belts, foam and fabric — the same
+    parts the quote's quantities are measured from. The footprint is
     exactly length x width (plus the chaise on an L-shape) and the height is
     height (mm; z up, front of the sofa towards -y). exploded=True lifts each
     layer clear of the one inside it.
 
-    scaled_bom is no longer needed (the quantities come from the construction
-    spec); it is accepted so existing callers keep working.
+    scaled_bom is no longer needed (the quantities come from the same parts);
+    it is accepted so existing callers keep working.
     """
     if not isinstance(dimensions, dict):
         raise ValueError("dimensions must be a dictionary with length_mm/width_mm/height_mm")
@@ -128,10 +129,10 @@ LAYER_COLOURS = {
     "seat_foam": [222, 170, 96, 255],    # 40D seat foam
     "back_foam": [236, 208, 128, 255],   # 32D back foam
     "padding":   [242, 230, 196, 255],   # 28D padding
-    "webbing":   [92, 96, 104, 255],     # elastic webbing
-    "springs":   [150, 156, 164, 255],   # zig-zag spring steel
+    "webbing":   [92, 96, 104, 255],     # seat and back belts
+    "springs":   [150, 156, 164, 255],   # sinuous spring steel and clips
     "plywood":   [214, 182, 134, 255],   # 12 mm ply
-    "frame":     [176, 122, 72, 255],    # sal hardwood
+    "frame":     [176, 122, 72, 255],    # timber frame and arm frames
     "legs":      [74, 52, 36, 255],      # dark wood
 }
 

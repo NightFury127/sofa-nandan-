@@ -18,3 +18,5 @@ fpdf2==2.8.3
 numpy==2.3.5
 # Only for src/collect_web_photos.py (collecting training photos)
 ddgs==9.16.0
+# Only for src/reference_cad.py (re-measuring the Fusion reference model)
+zstandard==0.23.0

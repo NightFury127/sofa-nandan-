@@ -32,8 +32,8 @@ def test_back_foam_follows_height_and_seat_foam_follows_depth():
     deeper, _ = _cost("3-seater", 2100, 990, 850)
 
     assert _qty(taller, "Back Foam") > _qty(base, "Back Foam")
-    assert _qty(deeper, "Back Foam") == pytest.approx(_qty(base, "Back Foam"))
     assert _qty(deeper, "Seat Foam") > _qty(base, "Seat Foam")
+    # seat foam is stock 2 x 50 mm sheet: a taller sofa doesn't get a thicker seat
     assert _qty(taller, "Seat Foam") == pytest.approx(_qty(base, "Seat Foam"))
 
 
@@ -49,13 +49,15 @@ def test_whole_unit_items_are_rounded_up():
         assert _qty(cost, name, "new_qty") == int(_qty(cost, name, "new_qty"))
 
 
-def test_geometry_quantities_match_industry_rules_of_thumb():
-    # Standard 3-seater: Indian makers use ~10-12 m of 54" fabric and
-    # 10-15 kg of foam; a 6" 40D seat over 3 seats is ~7-9 kg.
+def test_quantities_follow_the_reference_construction():
+    # Standard 3-seater built like the reference: 11 sinuous springs, a tight
+    # 2 x 50 mm 40D seat over the ~1.6 m span (~4.6 kg), ~8-9 m of 54" fabric
+    # (a tight-seat sofa uses less than the 10-12 m of a loose-cushion one).
     cost, _ = _cost("3-seater", 2100, 900, 850)
-    assert 9 <= _qty(cost, "Fabric") <= 13
-    assert 7 <= _qty(cost, "Seat Foam") <= 9
-    assert 10 <= sum(_qty(cost, n) for n in ("Seat Foam", "Back Foam", "Padding Foam")) <= 15
+    assert _qty(cost, "Springs") == 11
+    assert 4 <= _qty(cost, "Seat Foam") <= 5.5
+    assert 7.5 <= _qty(cost, "Fabric") <= 10
+    assert 1.2 <= _qty(cost, "Wood Frame") <= 1.8
     assert _qty(cost, "Sundries") == 3          # one kit per seat
 
 

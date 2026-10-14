@@ -73,7 +73,7 @@ Both modes apply scaling rules to produce scaled BOMs and cost estimates.
 
 ### 5. CAD Generation
 - **2D drawings (`src/cad_generator.py`)**: multi-view 2D drawings (PNG, DXF).
-- **3D model with the inside (`src/sofa_interior.py`, exported by `src/cad_generator_3d.py`)**: the sofa as it is built — sal frame, 12 mm plywood, zig-zag springs, back webbing, 40D/32D foam, 28D padding and fabric — laid out from the same construction spec and seat / spring / leg counts the quote is priced from (`bom_geometry.py`). Exported as GLB and OBJ, plus an exploded GLB with the layers lifted apart.
+- **3D model with the inside (`src/sofa_build.py` → `src/sofa_interior.py`, exported by `src/cad_generator_3d.py`)**: the sofa built part by part following the industry reference model "Sofa Internal Structure.f3z" — timber frame and arm frames, 12 mm plywood, sinuous springs and clips, seat and back belts, foam and fabric. The quote's quantities are measured off the same parts (`bom_geometry.py`). Exported as GLB and OBJ, plus an exploded GLB with the layers lifted apart. `src/reference_cad.py` reads the Fusion archive directly to re-measure the reference.
 - **Production CAD (`src/production_cad.py`)**: Generates BREP/STEP models for all 5 sofa types via `build123d`.
 
 ## How to Run the Project
@@ -102,7 +102,7 @@ The web app (`frontend/index.html` + ES modules in `frontend/js/`) offers:
 - **Live progress** from the server (`GET /api/progress/{id}`) while the pipeline runs.
 - **Results** with the annotated photo, BOM, cost structure, CAD downloads and a rotatable **3D model** (`<model-viewer>`, bundled in `frontend/vendor/` so it works offline). Turn **Fabric** and **Foam** off to see inside the sofa, or switch to **Exploded** to see each layer lifted apart (`GET /api/model-preview?...&exploded=true` gives the same model).
 - **Quote PDF** (`GET /api/quotes/{id}/pdf`), branded with SVCE and Stallion.
-- **Cost estimator**: material quantities are worked out from the sofa's geometry and an assumed mid-range construction (`src/bom_geometry.py`: frame members, foam volume x density, fabric from panel area and roll width), then priced with the rate sheet `data/pricing/pricing.json` (researched Bengaluru market rates with wastage %, fabric/foam grades, labour and finishing per sofa type, overhead and profit). Each quote shows the factory price (excl. GST) and a retail-equivalent estimate (dealer markup + 18% GST). Sources and assumptions: [docs/08_COSTING.md](docs/08_COSTING.md).
+- **Cost estimator**: material quantities are measured off the sofa built part by part like the industry reference model (`src/sofa_build.py`, `src/bom_geometry.py`: timber volume of every member, plywood area, foam volume x density, fabric from upholstered area and roll width), then priced with the rate sheet `data/pricing/pricing.json` (researched Bengaluru market rates with wastage %, fabric/foam grades, labour and finishing per sofa type, overhead and profit). Each quote shows the factory price (excl. GST) and a retail-equivalent estimate (dealer markup + 18% GST). Sources and assumptions: [docs/08_COSTING.md](docs/08_COSTING.md).
 - **Rate editor** for staff (Staff → Rates, `GET/PUT /api/pricing`): every save is validated and the previous sheet is kept as `pricing.previous.json`.
 - **Price vs size** (`GET /api/size-options`): the price at ±100 mm on each dimension, at today's rates.
 - **Quote history** (`GET /api/quotes`) for staff. Set `STALLION_STAFF_KEY` on a shared server; staff enter it once per browser session. Without it, history only works from the server machine itself. Behind a reverse proxy every request looks local, so **always set the key there**.
@@ -131,7 +131,7 @@ Outputs are saved in the `outputs/` directory and include:
 
 ## Test Suite Health
 The project is currently passing all tests:
-- `tests/` directory contains 72 passing tests covering schemas, CAD generation, the 3D interior model (part counts and size match the quote), cost scaling per sofa type, and the quote API.
+- `tests/` directory contains 75 passing tests covering schemas, CAD generation, the 3D interior model (part counts and size match the quote, and the 3-seater matches the reference model part by part), cost scaling per sofa type, and the quote API.
 - Root-level validation scripts (`test_detector_fix_validation.py`, `test_dimension_estimator.py`, etc.) all pass.
 
 ## Known Issues & Limitations
