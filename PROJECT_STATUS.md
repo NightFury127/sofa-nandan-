@@ -1,6 +1,6 @@
 # Stallion Sofa Costing Engine — Project Status Report
 
-**Last Updated**: 2026-09-01 (integration session)  
+**Last Updated**: 2026-10-22 (dependency refresh; features since 09-01 are in `Stallion/docs/07_MODELS.md` and `08_COSTING.md`)  
 **Location**: `Phase2_Sofa_Costing_Engine/Stallion/`  
 **Overall Status**: ✅ All planned integration work complete — full pipeline operational
 
@@ -390,7 +390,7 @@ Single-page web UI. Accepts image upload + dimension inputs, displays sofa analy
 
 ## 8. Test Suite Health
 
-### Formal test suite (`tests/`) — 22/22 passing
+### Formal test suite (`tests/`) — 78/78 passing (2026-10-22; table below is the original 22)
 
 | File | Tests | Status |
 |------|-------|--------|
@@ -435,20 +435,21 @@ Remaining health note: `src/__init__.py` is absent (namespace package — not a 
 
 | Package | Version | Role |
 |---------|---------|------|
-| fastapi | 0.115.0 | REST API framework |
+| fastapi | 0.159.1 | REST API framework |
 | uvicorn | 0.30.6 | ASGI server |
 | ultralytics | 8.3.47 | YOLOv8 detection |
 | opencv-python-headless | 4.10.0.84 | Image I/O and validation |
 | pandas | 2.3.3 | CSV data processing |
-| matplotlib | 3.9.2 | 2D drawing generation |
-| ezdxf | 1.4.1 | DXF export |
+| matplotlib | 3.10.8 | 2D drawing generation |
+| ezdxf | 1.4.5 | DXF export |
 | trimesh | 4.5.0 | 3D mesh generation |
 | numpy-stl | 3.2.0 | STL file support |
 | pytest | 8.3.3 | Test runner |
 | httpx | 0.28.1 | Async HTTP (for tests) |
+| fpdf2 | 2.8.9 | Quote PDF |
 
 **Not in requirements.txt:**
-- `build123d` v0.11.1 — installed in `.venv`, used by `production_cad.py`. Should be added to `requirements.txt`.
+- Nothing: `build123d` is now in `requirements.txt`. Held back on purpose: numpy (<2.4, ultralytics), pandas 3, opencv 5, build123d 0.13 / OCP 8, torch (cu130 build).
 
 All pinned versions match installed versions.
 
